@@ -35,11 +35,11 @@ def compute_estimates_for_station(
     df: pd.DataFrame,
     station_id: int,
     estimate_repo: EstimateRepository,
-    interval_minutes: int = 15,  # set to 5 or 15 as you prefer
+    interval_minutes: int = 15,
 ):
     """
-    Compute estimates by counting events *per interval* (non-overlapping bins).
-    interval_minutes: bin width in minutes (5, 15, ...).
+    Compute λ̂ for each 15-min window as the average of the three 5-min counts
+    within that window.
     """
     if df.empty:
         return
@@ -47,46 +47,39 @@ def compute_estimates_for_station(
     df["timestamp"] = pd.to_datetime(df["Fecha_Transaccion"])
     df = df.sort_values("timestamp")
 
-    if df.empty:
-        return
+    # Step 1: Count arrivals per 5-minute window
+    df["window_5min"] = df["timestamp"].dt.floor("5min")
+    per_5min_counts = df.groupby("window_5min").size().reset_index(name="count_5min")
 
-    # Floor timestamps to the desired bin (e.g., '15T' for 15 minutes)
-    freq = f"{interval_minutes}min"
-    df["time_bin"] = df["timestamp"].dt.floor(freq)
+    # Step 2: Map each 5-min window to its parent 15-min window
+    per_5min_counts["window_15min"] = per_5min_counts["window_5min"].dt.floor("15min")
 
-    # Extract date/time features from the bin start
-    df["year"] = df["time_bin"].dt.year
-    df["month"] = df["time_bin"].dt.month
-    df["day_of_week"] = df["time_bin"].dt.dayofweek
-    df["week_of_month"] = df["time_bin"].apply(get_week_of_month)
-    # convert time_bin to integer HHMM for storage (e.g., 04:15 -> 415)
-    df["time_int"] = df["time_bin"].dt.hour * 100 + df["time_bin"].dt.minute
-
-    # Count events per bin
-    per_bin_counts = (
-        df.groupby(["year", "month", "week_of_month", "day_of_week", "time_int"])
-        .size()
-        .reset_index(name="count_in_interval")
-    )
-
-    # If you want an average across multiple days in the same group
-    # (e.g., same weekday/week_of_month/month), take the mean of counts:
-    per_bin_avg = (
-        per_bin_counts.groupby(
-            ["year", "month", "week_of_month", "day_of_week", "time_int"]
-        )["count_in_interval"]
+    # Step 3: For each 15-min window, average the 5-min counts
+    per_15min_avg = (
+        per_5min_counts.groupby("window_15min")["count_5min"]
         .mean()
         .reset_index(name="lambda_estimate")
     )
 
-    # Store results (lambda_estimate is average arrivals *per interval_minutes*)
-    for _, row in per_bin_avg.iterrows():
+    # Step 4: Extract temporal features for database storage
+    per_15min_avg["year"] = per_15min_avg["window_15min"].dt.year
+    per_15min_avg["month"] = per_15min_avg["window_15min"].dt.month
+    per_15min_avg["day_of_week"] = per_15min_avg["window_15min"].dt.dayofweek
+    per_15min_avg["week_of_month"] = per_15min_avg["window_15min"].apply(
+        get_week_of_month
+    )
+    per_15min_avg["time_int"] = (
+        per_15min_avg["window_15min"].dt.hour * 100
+        + per_15min_avg["window_15min"].dt.minute
+    )
+
+    # Step 5: Store results
+    for _, row in per_15min_avg.iterrows():
         year = int(row["year"])
         month = int(row["month"])
         week_of_month = int(row["week_of_month"])
         day_of_week = int(row["day_of_week"])
-        time = int(row["time_int"])  # e.g., 400, 415, 430
-        is_holiday = False
+        time = int(row["time_int"])
         lambda_estimate = float(row["lambda_estimate"])
 
         if estimate_repo.exists(
@@ -95,7 +88,7 @@ def compute_estimates_for_station(
             week_of_month=week_of_month,
             day_of_week=day_of_week,
             time=time,
-            is_holiday=is_holiday,
+            is_holiday=False,
             station_id=station_id,
         ):
             estimate_repo.update_estimate_lambda_in(
@@ -104,7 +97,7 @@ def compute_estimates_for_station(
                 week_of_month=week_of_month,
                 day_of_week=day_of_week,
                 time=time,
-                is_holiday=is_holiday,
+                is_holiday=False,
                 station_id=station_id,
                 lambda_in=lambda_estimate,
             )
@@ -115,7 +108,7 @@ def compute_estimates_for_station(
                 week_of_month=week_of_month,
                 day_of_week=day_of_week,
                 time=time,
-                is_holiday=is_holiday,
+                is_holiday=False,
                 station_id=station_id,
                 estimated_lambda_in=lambda_estimate,
             )
