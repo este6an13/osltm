@@ -1,3 +1,6 @@
+# This script could be replaced by the synthetic data generator
+# This script only generates counts, not specific records
+
 import matplotlib.pyplot as plt
 import numpy as np
 from sqlalchemy.orm import Session
