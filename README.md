@@ -30,7 +30,7 @@
 
 - To Explore:
     - Feasibility of Historic OD based on real data
-    - Feasibility of Real-Time OD based on real data
+    - Feasibility of Real-Time OD based on real data: ⏳
     - OD Estimation - Other Approaches: Flows (Ins/Outs)
     - Dynamic/Time Varying OD
     - Potential Routes from OD
