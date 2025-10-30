@@ -27,8 +27,11 @@ print(
     DailyCheckOutsProcessingStatus,
 )
 
+# BASE_DIR to access the database from notebooks
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 DATABASE_FILE = os.getenv("DATABASE_FILE", "osltm.db")
-DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
+DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, DATABASE_FILE)}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = scoped_session(sessionmaker(autocommit=False, bind=engine))

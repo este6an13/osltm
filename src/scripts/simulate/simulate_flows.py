@@ -120,11 +120,16 @@ def simulate_station_flows(
 if __name__ == "__main__":
     # Example usage
     simulate_station_flows(
-        station_code="09104",
-        year=2025,
-        month=10,
-        week_of_month=3,
-        day_of_week=1,
+        station_code="07107",  # clusterize
+        year=2025,  # should be similar
+        month=10,  # detect differences: could drop
+        week_of_month=3,  # drop
+        day_of_week=1,  # go weekday, saturday, sunday/holiday and detect differences
         mode="both",  # "in", "out", or "both"
         seed=123,
     )
+
+# 09104: Restrepo
+# 02300: Calle 100
+# 07503: San Mateo
+# 07107: U Nacional
