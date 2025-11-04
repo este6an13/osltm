@@ -19,7 +19,6 @@ class Station(Base):
     name = Column(String(255), nullable=False)
 
     # Relationships
-    check_ins = relationship("CheckIn", back_populates="station")
     estimates = relationship(
         "Estimate", back_populates="station", cascade="all, delete-orphan"
     )
