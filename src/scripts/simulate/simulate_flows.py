@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sqlalchemy.orm import Session
 
-from src.db.session import SessionLocal
-from src.repo.estimates.models import Estimate
-from src.repo.stations.repository import StationRepository
+from src.db.session_v0 import SessionLocal
+from src.repo.v0.estimates.models import Estimate
+from src.repo.v0.stations.repository import StationRepository
 
 
 def simulate_poisson_series(lambdas: list[float], seed: int | None = None):

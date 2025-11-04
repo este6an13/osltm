@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
-from src.repo.processing.models import (
+from src.repo.v0.processing.models import (
     DailyCheckInsProcessingStatus,
     DailyCheckOutsProcessingStatus,
     ProcessedDailyCheckInsFile,

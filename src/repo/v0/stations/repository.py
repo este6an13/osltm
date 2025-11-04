@@ -2,7 +2,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from src.repo.stations.models import Station
+from src.repo.v0.stations.models import Station
 
 
 class StationRepository:

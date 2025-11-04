@@ -5,10 +5,10 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from src.db.session import SessionLocal
-from src.repo.estimates.repository import EstimateRepository
-from src.repo.processing.repository import ProcessedDailyCheckInsFileRepository
-from src.repo.stations.repository import StationRepository
+from src.db.session_v0 import SessionLocal
+from src.repo.v0.estimates.repository import EstimateRepository
+from src.repo.v0.processing.repository import ProcessedDailyCheckInsFileRepository
+from src.repo.v0.stations.repository import StationRepository
 
 
 def get_week_of_month(date: datetime) -> int:

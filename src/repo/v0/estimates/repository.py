@@ -1,7 +1,7 @@
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from src.repo.estimates.models import Estimate
+from src.repo.v0.estimates.models import Estimate
 
 
 class EstimateRepository:

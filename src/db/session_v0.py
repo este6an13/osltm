@@ -6,14 +6,14 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from src.db.config import Base
 
 # Import models so they register with Base
-from src.repo.estimates.models import Estimate
-from src.repo.processing.models import (
+from src.repo.v0.estimates.models import Estimate
+from src.repo.v0.processing.models import (
     DailyCheckInsProcessingStatus,
     DailyCheckOutsProcessingStatus,
     ProcessedDailyCheckInsFile,
     ProcessedDailyCheckOutsFile,
 )
-from src.repo.stations.models import Station
+from src.repo.v0.stations.models import Station
 from src.utils.logging import logger
 
 print(
