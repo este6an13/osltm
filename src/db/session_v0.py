@@ -9,9 +9,7 @@ from src.db.config import Base
 from src.repo.v0.estimates.models import Estimate
 from src.repo.v0.processing.models import (
     DailyCheckInsProcessingStatus,
-    DailyCheckOutsProcessingStatus,
     ProcessedDailyCheckInsFile,
-    ProcessedDailyCheckOutsFile,
 )
 from src.repo.v0.stations.models import Station
 from src.utils.logging import logger
@@ -20,9 +18,7 @@ print(
     Station,
     Estimate,
     ProcessedDailyCheckInsFile,
-    ProcessedDailyCheckOutsFile,
     DailyCheckInsProcessingStatus,
-    DailyCheckOutsProcessingStatus,
 )
 
 # BASE_DIR to access the database from notebooks
