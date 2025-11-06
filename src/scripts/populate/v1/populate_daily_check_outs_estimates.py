@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import List, Optional
 
 import pandas as pd
@@ -17,29 +16,27 @@ from src.utils.stations import extract_station_info
 PROCESS_TYPE = "daily_check_outs_estimates"
 
 
-def compute_checkout_estimates(
-    df: pd.DataFrame,
-    station_id: int,
-    estimate_repo: EstimateRepository,
-):
-    """Aggregate Salidas_S every 15 min, convert to 5-min lambda_out estimate, store in DB."""
+def compute_estimates_for_station(df: pd.DataFrame, station_id: int) -> list[dict]:
+    """Compute λ̂_out for each 15-min window and return as list of dicts ready for bulk insert."""
     if df.empty:
-        return
+        return []
 
-    # Combine date + time columns, parse to datetime, floor to 15-min
+    # Combine date + time into full timestamp
     df["timestamp"] = pd.to_datetime(
         df["Fecha_Transaccion"].astype(str) + " " + df["Tiempo"].astype(str)
     )
+
+    # Floor to 15-min intervals
     df["timestamp"] = df["timestamp"].dt.floor("15min")
 
-    # Group by 15-min intervals and sum Salidas_S
+    # Aggregate total checkouts per 15-min window
     grouped = (
         df.groupby("timestamp")["Salidas_S"]
         .sum()
         .reset_index(name="total_checkouts_15min")
     )
 
-    # Extract temporal features
+    # Temporal features
     grouped["year"] = grouped["timestamp"].dt.year
     grouped["month"] = grouped["timestamp"].dt.month
     grouped["day"] = grouped["timestamp"].dt.day
@@ -48,58 +45,32 @@ def compute_checkout_estimates(
         grouped["timestamp"].dt.hour * 100 + grouped["timestamp"].dt.minute
     )
 
-    # Convert to 5-min window equivalent (uniform assumption: 15-min -> divide by 3)
+    # Convert 15-min total → equivalent 5-min lambda_out (divide by 3)
     grouped["lambda_out"] = grouped["total_checkouts_15min"] / 3.0
 
+    # Prepare for bulk insert/upsert
+    estimate_rows = []
     for _, row in grouped.iterrows():
-        ts = row["timestamp"]
-        year = int(row["year"])
-        month = int(row["month"])
-        day = int(row["day"])
-        day_of_week = int(row["day_of_week"])
-        time_int = int(row["time_int"])
-        lambda_out = float(row["lambda_out"])
-
-        date_type = get_day_type(ts)
-
-        # Use new EstimateRepository signatures (day + date_type)
-        if estimate_repo.exists(
-            year=year,
-            month=month,
-            day=day,
-            day_of_week=day_of_week,
-            time=time_int,
-            date_type=date_type,
-            station_id=station_id,
-        ):
-            estimate_repo.update_estimate_lambda_out(
-                year=year,
-                month=month,
-                day=day,
-                day_of_week=day_of_week,
-                time=time_int,
+        timestamp = row["timestamp"]
+        date_type = get_day_type(timestamp)
+        estimate_rows.append(
+            dict(
+                year=int(row["year"]),
+                month=int(row["month"]),
+                day=int(row["day"]),
+                day_of_week=int(row["day_of_week"]),
+                time=int(row["time_int"]),
                 date_type=date_type,
                 station_id=station_id,
-                lambda_out=lambda_out,
+                estimated_lambda_out=float(row["lambda_out"]),
             )
-        else:
-            estimate_repo.create_estimate(
-                year=year,
-                month=month,
-                day=day,
-                day_of_week=day_of_week,
-                time=time_int,
-                date_type=date_type,
-                station_id=station_id,
-                estimated_lambda_out=lambda_out,
-            )
+        )
+
+    return estimate_rows
 
 
-def process_check_out_estimates(file_ids: Optional[List[str]] = None):
-    """
-    Process daily checkout CSVs and update lambda_out estimates.
-    If file_ids is provided (e.g., ["20241103", "20241105"]), only those are processed.
-    """
+def process_estimates(file_ids: Optional[List[str]] = None):
+    """Main entrypoint for computing lambda_out estimates using batch inserts."""
     session: Session = SessionLocal()
     estimate_repo = EstimateRepository(session)
     station_repo = StationRepository(session)
@@ -119,13 +90,14 @@ def process_check_out_estimates(file_ids: Optional[List[str]] = None):
 
     if not files_to_process:
         print("⚠️ No matching files found to process.")
-        session.close()
         return
+
+    # --- Preload all known stations once ---
+    existing_stations = {s.code: s for s in station_repo.get_all_stations()}
 
     for filename in files_to_process:
         file_id = filename.replace(".csv", "")
 
-        # Skip if already processed
         if processed_repo.is_processed(file_id, PROCESS_TYPE):
             print(f"✅ File {filename} already processed. Skipping.")
             continue
@@ -133,7 +105,7 @@ def process_check_out_estimates(file_ids: Optional[List[str]] = None):
         file_path = os.path.join(folder_path, filename)
         print(f"📂 Processing file: {filename}")
 
-        # Read CSV; don't parse dates here because we combine Fecha_Transaccion + Tiempo
+        # Read CSV
         df = pd.read_csv(
             file_path,
             usecols=["Fecha_Transaccion", "Tiempo", "Estacion", "Salidas_S"],
@@ -145,38 +117,47 @@ def process_check_out_estimates(file_ids: Optional[List[str]] = None):
             },
         )
 
-        # Aggregate by station code
-        for station_field, group in df.groupby("Estacion"):
+        # --- Gather stations ---
+        new_station_objs = []
+        for station_field in df["Estacion"].unique():
             code, name = extract_station_info(station_field)
-            if not code or not name:
-                continue
+            if code and name and code not in existing_stations:
+                new_station_objs.append(dict(code=code, name=name))
 
-            # Ensure station exists
-            station = station_repo.get_station_by_code(code)
+        # --- Bulk insert new stations ---
+        if new_station_objs:
+            created = station_repo.bulk_insert_stations(new_station_objs)
+            existing_stations.update({s.code: s for s in created})
+            print(f"🆕 Added {len(created)} new stations")
+
+        # --- Compute estimates for each station ---
+        all_estimates = []
+        for station_field, group in df.groupby("Estacion"):
+            code, _ = extract_station_info(station_field)
+            station = existing_stations.get(code)
             if not station:
-                try:
-                    station = station_repo.create_station(code, name)
-                    print(f"🆕 Created station {code} - {name}")
-                except Exception as e:
-                    print(f"⚠️ Could not create station {code}: {e}")
-                    continue
+                continue
+            all_estimates.extend(compute_estimates_for_station(group, station.id))
 
-            # Compute and store λ_out estimates
-            compute_checkout_estimates(group, station.id, estimate_repo)
+        # --- Bulk upsert estimates ---
+        if all_estimates:
+            estimate_repo.bulk_upsert_estimates(all_estimates)
+            print(f"💾 Inserted/updated {len(all_estimates)} λ_out estimates")
 
-        # Mark file processed (flattened model)
+        # Mark file processed and commit
         processed_repo.mark_processed(file_id, PROCESS_TYPE)
+        session.commit()
         print(f"✅ Finished processing {filename}\n")
 
-    print("🏁 All checkout estimate computations complete.")
+    print("🏁 All λ_out estimate computations complete.")
     session.close()
 
 
 if __name__ == "__main__":
-    # Example usage:
-    #   uv run python -m src.utils.process_check_out_estimates 20241103 20241105
-    #   uv run python -m src.utils.process_check_out_estimates
+    import sys
+
     if len(sys.argv) > 1:
-        process_check_out_estimates(sys.argv[1:])
+        file_ids = sys.argv[1:]
+        process_estimates(file_ids)
     else:
-        process_check_out_estimates()
+        process_estimates()

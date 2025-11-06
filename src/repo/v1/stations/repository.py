@@ -10,6 +10,7 @@ class StationRepository:
 
     def __init__(self, db: Session):
         self.db = db
+        self.model = Station
 
     def create_station(self, code: str, name: str) -> Station:
         """
@@ -70,3 +71,10 @@ class StationRepository:
             List of all Station objects
         """
         return self.db.query(Station).all()
+
+    def bulk_insert_stations(self, stations: list[dict]):
+        self.db.execute(self.model.__table__.insert(), stations)
+        self.db.commit()
+        # Reload newly inserted ones to return (optional)
+        codes = [s["code"] for s in stations]
+        return self.db.query(self.model).filter(self.model.code.in_(codes)).all()
