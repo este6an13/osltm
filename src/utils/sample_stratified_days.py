@@ -1,24 +1,8 @@
 import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Literal
 
-from src.utils.colombian_holidays import is_colombian_holiday
-
-
-def get_day_type(dt: date) -> Literal["weekday", "saturday", "sunday", "holiday"]:
-    """
-    Classify a date as weekday / saturday / sunday / holiday.
-    Holidays override weekday/weekend classification.
-    """
-    if is_colombian_holiday(dt):
-        return "holiday"
-    elif dt.weekday() == 5:
-        return "saturday"
-    elif dt.weekday() == 6:
-        return "sunday"
-    else:
-        return "weekday"
+from src.utils.day_type import get_day_type
 
 
 def sample_stratified_days(
@@ -48,14 +32,14 @@ def sample_stratified_days(
     year_months = sorted({(y, m) for (y, m, _) in strata.keys()})
     for year, month in year_months:
         # --- Weekdays ---
-        weekdays = strata.get((year, month, "weekday"), [])
+        weekdays = strata.get((year, month, "WD"), [])
         if weekdays:
             k = min(n_per_stratum, len(weekdays))
             sampled_days.extend(random.sample(weekdays, k=k))
 
         # --- Weekends (Saturday + Sunday) ---
-        weekends = strata.get((year, month, "saturday"), []) + strata.get(
-            (year, month, "sunday"), []
+        weekends = strata.get((year, month, "SA"), []) + strata.get(
+            (year, month, "SU"), []
         )
         if weekends:
             k = min(n_per_stratum, len(weekends))
@@ -65,7 +49,7 @@ def sample_stratified_days(
             sampled_days.append(random.choice(weekdays))
 
         # --- Holidays ---
-        holidays_in_month = strata.get((year, month, "holiday"), [])
+        holidays_in_month = strata.get((year, month, "HO"), [])
         if holidays_in_month:
             k = min(n_per_stratum, len(holidays_in_month))
             sampled_days.extend(random.sample(holidays_in_month, k=k))

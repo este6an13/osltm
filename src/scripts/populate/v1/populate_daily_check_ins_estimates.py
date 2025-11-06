@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from typing import List, Optional
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -8,33 +8,12 @@ from src.db.session_v1 import SessionLocal
 from src.repo.v1.estimates.repository import EstimateRepository
 from src.repo.v1.processing.repository import ProcessedFileRepository
 from src.repo.v1.stations.repository import StationRepository
-from src.utils.colombian_holidays import is_colombian_holiday
+from src.utils.day_type import get_day_type
+from src.utils.stations import extract_station_info
 
+# uv run python -m src.scripts.populate.v1.populate_daily_check_ins_estimates 20241103 20241104
 
-def extract_station_info(station_field: str):
-    """
-    Extract station code and name from the 'Estacion_Parada' column.
-    Example: "(09104) Restrepo" -> ("09104", "Restrepo")
-    """
-    if not station_field or "(" not in station_field or ")" not in station_field:
-        return None, None
-    code = station_field.split(")")[0].replace("(", "").strip()
-    name = station_field.split(")")[1].strip()
-    return code, name
-
-
-def get_date_type(date_obj: datetime) -> str:
-    """
-    Classify the date as 'weekday', 'saturday', 'sunday', or 'holiday' (Colombia).
-    """
-    if is_colombian_holiday(date_obj):
-        return "H"  # holiday
-    day_of_week = date_obj.weekday()
-    if day_of_week == 5:
-        return "SA"  # satuday
-    elif day_of_week == 6:
-        return "SU"  # sunday
-    return "WD"  # weekday
+PROCESS_TYPE = "daily_check_ins_estimates"
 
 
 def compute_estimates_for_station(
@@ -42,10 +21,7 @@ def compute_estimates_for_station(
     station_id: int,
     estimate_repo: EstimateRepository,
 ):
-    """
-    Compute λ̂ for each 15-min window as the average of the three 5-min counts
-    within that window and store it in the database.
-    """
+    """Compute λ̂ for each 15-min window as the average of the three 5-min counts."""
     if df.empty:
         return
 
@@ -66,7 +42,7 @@ def compute_estimates_for_station(
         .reset_index(name="lambda_estimate")
     )
 
-    # Step 4: Extract temporal features for database storage
+    # Step 4: Extract temporal features
     per_15min_avg["year"] = per_15min_avg["window_15min"].dt.year
     per_15min_avg["month"] = per_15min_avg["window_15min"].dt.month
     per_15min_avg["day"] = per_15min_avg["window_15min"].dt.day
@@ -85,7 +61,7 @@ def compute_estimates_for_station(
         day_of_week = int(row["day_of_week"])
         time = int(row["time_int"])
         lambda_estimate = float(row["lambda_estimate"])
-        date_type = get_date_type(timestamp)
+        date_type = get_day_type(timestamp)
 
         if estimate_repo.exists(
             year=year,
@@ -119,8 +95,11 @@ def compute_estimates_for_station(
             )
 
 
-def process_estimates():
-    """Main entrypoint for computing lambda estimates directly from CSVs."""
+def process_estimates(file_ids: Optional[List[str]] = None):
+    """
+    Main entrypoint for computing lambda estimates directly from CSVs.
+    If file_ids is provided (e.g., ["20241103", "20241105"]), only those are processed.
+    """
     session: Session = SessionLocal()
     estimate_repo = EstimateRepository(session)
     station_repo = StationRepository(session)
@@ -129,28 +108,37 @@ def process_estimates():
     folder_path = "data/check_ins/daily"
     print("📊 Starting lambda estimation from raw check-in files...")
 
-    for filename in os.listdir(folder_path):
-        if not filename.endswith(".csv"):
-            continue
+    all_files = [f for f in os.listdir(folder_path) if f.endswith(".csv")]
 
+    if file_ids:
+        # Normalize to expected filenames
+        target_files = [f"{fid}.csv" for fid in file_ids]
+        files_to_process = [f for f in all_files if f in target_files]
+        print(f"📅 Filtering for specific dates: {', '.join(file_ids)}")
+    else:
+        files_to_process = all_files
+
+    if not files_to_process:
+        print("⚠️ No matching files found to process.")
+        return
+
+    for filename in files_to_process:
         file_id = filename.replace(".csv", "")
 
         # Skip processed files
-        if processed_repo.is_processed(file_id, "daily_check_ins_estimates"):
+        if processed_repo.is_processed(file_id, PROCESS_TYPE):
             print(f"✅ File {filename} already processed. Skipping.")
             continue
 
         file_path = os.path.join(folder_path, filename)
         print(f"📂 Processing file: {filename}")
 
-        # Load required columns
         df = pd.read_csv(
             file_path,
             usecols=["Fecha_Transaccion", "Estacion_Parada"],
             parse_dates=["Fecha_Transaccion"],
         )
 
-        # Process per station
         for station_field, group in df.groupby("Estacion_Parada"):
             code, name = extract_station_info(station_field)
             if not code or not name:
@@ -169,8 +157,7 @@ def process_estimates():
             # Compute λ estimates
             compute_estimates_for_station(group, station.id, estimate_repo)
 
-        # Mark file processed
-        processed_repo.mark_processed(file_id, "daily_check_ins_estimates")
+        processed_repo.mark_processed(file_id, PROCESS_TYPE)
         print(f"✅ Finished processing {filename}\n")
 
     print("🏁 All estimate computations complete.")
@@ -178,4 +165,11 @@ def process_estimates():
 
 
 if __name__ == "__main__":
-    process_estimates()
+    # Example usage: process_estimates(["20241103", "20241105"])
+    import sys
+
+    if len(sys.argv) > 1:
+        file_ids = sys.argv[1:]
+        process_estimates(file_ids)
+    else:
+        process_estimates()

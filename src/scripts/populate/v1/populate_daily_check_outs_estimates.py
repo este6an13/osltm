@@ -1,6 +1,6 @@
-import math
 import os
-from datetime import datetime
+import sys
+from typing import List, Optional
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -9,27 +9,12 @@ from src.db.session_v1 import SessionLocal
 from src.repo.v1.estimates.repository import EstimateRepository
 from src.repo.v1.processing.repository import ProcessedFileRepository
 from src.repo.v1.stations.repository import StationRepository
-from src.utils.colombian_holidays import is_colombian_holiday
+from src.utils.day_type import get_day_type
+from src.utils.stations import extract_station_info
 
+# uv run python -m src.scripts.populate.v1.populate_daily_check_outs_estimates 20241103 20241104
 
-def get_week_of_month(date: datetime) -> int:
-    """Return the week number within the month (1–5)."""
-    first_day = date.replace(day=1)
-    dom = date.day
-    adjusted_dom = dom + first_day.weekday()
-    return int(math.ceil(adjusted_dom / 7.0))
-
-
-def extract_station_info(station_field: str):
-    """
-    Extract station code and name from the 'Estacion' column.
-    Example: "(02202)Calle 127 - L Oreal Paris" -> ("02202", "Calle 127 - L Oreal Paris")
-    """
-    if not station_field or "(" not in station_field or ")" not in station_field:
-        return None, None
-    code = station_field.split(")")[0].replace("(", "").strip()
-    name = station_field.split(")")[1].strip()
-    return code, name
+PROCESS_TYPE = "daily_check_outs_estimates"
 
 
 def compute_checkout_estimates(
@@ -37,17 +22,19 @@ def compute_checkout_estimates(
     station_id: int,
     estimate_repo: EstimateRepository,
 ):
-    """Aggregate Salidas_S every 15 min, convert to 5-min lambda_out estimate."""
+    """Aggregate Salidas_S every 15 min, convert to 5-min lambda_out estimate, store in DB."""
     if df.empty:
         return
 
-    # Combine date + time
-    df["timestamp"] = pd.to_datetime(df["Fecha_Transaccion"] + " " + df["Tiempo"])
+    # Combine date + time columns, parse to datetime, floor to 15-min
+    df["timestamp"] = pd.to_datetime(
+        df["Fecha_Transaccion"].astype(str) + " " + df["Tiempo"].astype(str)
+    )
     df["timestamp"] = df["timestamp"].dt.floor("15min")
 
     # Group by 15-min intervals and sum Salidas_S
     grouped = (
-        df.groupby(df["timestamp"])["Salidas_S"]
+        df.groupby("timestamp")["Salidas_S"]
         .sum()
         .reset_index(name="total_checkouts_15min")
     )
@@ -55,63 +42,64 @@ def compute_checkout_estimates(
     # Extract temporal features
     grouped["year"] = grouped["timestamp"].dt.year
     grouped["month"] = grouped["timestamp"].dt.month
+    grouped["day"] = grouped["timestamp"].dt.day
     grouped["day_of_week"] = grouped["timestamp"].dt.dayofweek
-    grouped["week_of_month"] = grouped["timestamp"].apply(get_week_of_month)
     grouped["time_int"] = (
         grouped["timestamp"].dt.hour * 100 + grouped["timestamp"].dt.minute
     )
 
-    # Convert to 5-min window equivalent (uniform assumption)
+    # Convert to 5-min window equivalent (uniform assumption: 15-min -> divide by 3)
     grouped["lambda_out"] = grouped["total_checkouts_15min"] / 3.0
 
     for _, row in grouped.iterrows():
+        ts = row["timestamp"]
         year = int(row["year"])
         month = int(row["month"])
-        week_of_month = int(row["week_of_month"])
+        day = int(row["day"])
         day_of_week = int(row["day_of_week"])
-        time = int(row["time_int"])
+        time_int = int(row["time_int"])
         lambda_out = float(row["lambda_out"])
 
-        # Determine holiday status
-        is_holiday = is_colombian_holiday(row["timestamp"])
+        date_type = get_day_type(ts)
 
-        # Check if record exists
+        # Use new EstimateRepository signatures (day + date_type)
         if estimate_repo.exists(
             year=year,
             month=month,
-            week_of_month=week_of_month,
+            day=day,
             day_of_week=day_of_week,
-            time=time,
-            is_holiday=is_holiday,
+            time=time_int,
+            date_type=date_type,
             station_id=station_id,
         ):
-            # Update existing record
             estimate_repo.update_estimate_lambda_out(
                 year=year,
                 month=month,
-                week_of_month=week_of_month,
+                day=day,
                 day_of_week=day_of_week,
-                time=time,
-                is_holiday=is_holiday,
+                time=time_int,
+                date_type=date_type,
                 station_id=station_id,
                 lambda_out=lambda_out,
             )
         else:
-            # Create new
             estimate_repo.create_estimate(
                 year=year,
                 month=month,
-                week_of_month=week_of_month,
+                day=day,
                 day_of_week=day_of_week,
-                time=time,
-                is_holiday=is_holiday,
+                time=time_int,
+                date_type=date_type,
                 station_id=station_id,
                 estimated_lambda_out=lambda_out,
             )
 
 
-def process_check_out_estimates():
-    """Process daily checkout CSVs and update lambda_out estimates."""
+def process_check_out_estimates(file_ids: Optional[List[str]] = None):
+    """
+    Process daily checkout CSVs and update lambda_out estimates.
+    If file_ids is provided (e.g., ["20241103", "20241105"]), only those are processed.
+    """
     session: Session = SessionLocal()
     estimate_repo = EstimateRepository(session)
     station_repo = StationRepository(session)
@@ -120,23 +108,41 @@ def process_check_out_estimates():
     folder_path = "data/check_outs/daily"
     print("📊 Starting lambda_out estimation from raw check-out files...")
 
-    for filename in os.listdir(folder_path):
-        if not filename.endswith(".csv"):
-            continue
+    all_files = [f for f in os.listdir(folder_path) if f.endswith(".csv")]
 
+    if file_ids:
+        target_files = [f"{fid}.csv" for fid in file_ids]
+        files_to_process = [f for f in all_files if f in target_files]
+        print(f"📅 Filtering for specific dates: {', '.join(file_ids)}")
+    else:
+        files_to_process = all_files
+
+    if not files_to_process:
+        print("⚠️ No matching files found to process.")
+        session.close()
+        return
+
+    for filename in files_to_process:
         file_id = filename.replace(".csv", "")
 
         # Skip if already processed
-        if processed_repo.is_processed(file_id, "daily_check_outs_estimates"):
+        if processed_repo.is_processed(file_id, PROCESS_TYPE):
             print(f"✅ File {filename} already processed. Skipping.")
             continue
 
         file_path = os.path.join(folder_path, filename)
         print(f"📂 Processing file: {filename}")
 
+        # Read CSV; don't parse dates here because we combine Fecha_Transaccion + Tiempo
         df = pd.read_csv(
             file_path,
             usecols=["Fecha_Transaccion", "Tiempo", "Estacion", "Salidas_S"],
+            dtype={
+                "Fecha_Transaccion": str,
+                "Tiempo": str,
+                "Estacion": str,
+                "Salidas_S": float,
+            },
         )
 
         # Aggregate by station code
@@ -158,8 +164,8 @@ def process_check_out_estimates():
             # Compute and store λ_out estimates
             compute_checkout_estimates(group, station.id, estimate_repo)
 
-        # Mark file processed
-        processed_repo.mark_processed(file_id, "daily_check_outs_estimates")
+        # Mark file processed (flattened model)
+        processed_repo.mark_processed(file_id, PROCESS_TYPE)
         print(f"✅ Finished processing {filename}\n")
 
     print("🏁 All checkout estimate computations complete.")
@@ -167,4 +173,10 @@ def process_check_out_estimates():
 
 
 if __name__ == "__main__":
-    process_check_out_estimates()
+    # Example usage:
+    #   uv run python -m src.utils.process_check_out_estimates 20241103 20241105
+    #   uv run python -m src.utils.process_check_out_estimates
+    if len(sys.argv) > 1:
+        process_check_out_estimates(sys.argv[1:])
+    else:
+        process_check_out_estimates()

@@ -1,5 +1,7 @@
 data/
 osltm.db
+osltm.db-journal
+osltm_v1.db-journal
 osltm_v1.db
 temp_downloads/
 
