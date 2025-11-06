@@ -2,6 +2,7 @@ import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
+from src.constants.seed import SEED
 from src.utils.day_type import get_day_type
 
 
@@ -9,7 +10,7 @@ def sample_stratified_days(
     start_date: date,
     end_date: date,
     n_per_stratum: int = 2,
-    random_seed: int = 42,
+    random_seed: int = SEED,
 ) -> list[date]:
     """
     Stratified sampling of days between start_date and end_date.
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     start = date(2024, 6, 25)
     end = datetime.now().date() - timedelta(days=2)
 
-    sampled = sample_stratified_days(start, end, n_per_stratum=2)
+    sampled = sample_stratified_days(start, end, n_per_stratum=2, random_seed=SEED)
     print(f"Sampled {len(sampled)} unique dates between {start} and {end}:")
     for d in sampled:
         print(f"  {d} ({get_day_type(d)})")

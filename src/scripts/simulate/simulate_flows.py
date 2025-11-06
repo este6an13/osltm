@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sqlalchemy.orm import Session
 
+from src.constants.seed import SEED
 from src.db.session_v0 import SessionLocal
 from src.repo.v0.estimates.models import Estimate
 from src.repo.v0.stations.repository import StationRepository
@@ -26,7 +27,7 @@ def simulate_station_flows(
     week_of_month: int,
     day_of_week: int,
     mode: str = "both",  # "in", "out", or "both"
-    seed: int | None = 42,
+    seed: int | None = SEED,
 ):
     """
     Simulate check-in/check-out flows using time-varying Poisson rates (λ).
@@ -126,7 +127,7 @@ if __name__ == "__main__":
         week_of_month=3,  # drop
         day_of_week=1,  # go weekday, saturday, sunday/holiday and detect differences
         mode="both",  # "in", "out", or "both"
-        seed=123,
+        seed=SEED,
     )
 
 # 09104: Restrepo

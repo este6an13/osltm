@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from src.constants.seed import SEED
 from src.db.session_v0 import SessionLocal
 from src.repo.v0.estimates.models import Estimate
 from src.repo.v0.stations.repository import StationRepository
@@ -31,7 +32,7 @@ def get_week_of_month(date: datetime) -> int:
 def generate_synthetic_data_for_date(
     target_date: datetime,
     mode: str = "both",  # "in", "out", or "both"
-    seed: int | None = 42,
+    seed: int | None = SEED,
 ):
     """
     Generate individual-level synthetic check-ins and/or check-outs for all stations.
@@ -150,6 +151,5 @@ def generate_synthetic_data_for_date(
 if __name__ == "__main__":
     target_date = datetime(2025, 10, 14)
     mode = "both"  # "in", "out", or "both"
-    seed = 123
 
-    generate_synthetic_data_for_date(target_date, mode=mode, seed=seed)
+    generate_synthetic_data_for_date(target_date, mode=mode, seed=SEED)
