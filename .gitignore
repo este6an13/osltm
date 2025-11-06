@@ -1,6 +1,7 @@
 data/
 osltm.db
 osltm_v1.db
+temp_downloads/
 
 # Python-generated files
 __pycache__/
