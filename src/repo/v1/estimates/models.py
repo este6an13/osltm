@@ -31,7 +31,7 @@ class Estimate(Base):
     time = Column(Integer, nullable=False)  # e.g., 400 → 04:00, 2300 → 23:00
 
     # Date type classification
-    date_type = Column(String(20), nullable=False)  # weekday, saturday, sunday, holiday
+    date_type = Column(String(20), nullable=False)  # WD, SA, SU, HO
 
     # Foreign key to station
     station_id = Column(Integer, ForeignKey("stations.id"), nullable=False)
