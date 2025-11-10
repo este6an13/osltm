@@ -15,9 +15,16 @@ from src.repo.v1.estimates.models import Estimate
 
 
 def _load_estimate_data(station_ids: list[int]) -> pd.DataFrame:
-    """Load estimate records for selected stations from the database."""
+    """
+    Load estimate records for selected stations from the database.
+    Filters to include only time windows between 04:00 (400) and 23:00 (2300).
+    """
     session: Session = SessionLocal()
-    query = session.query(Estimate).filter(Estimate.station_id.in_(station_ids))
+    query = session.query(Estimate).filter(
+        Estimate.station_id.in_(station_ids),
+        Estimate.time >= 400,
+        Estimate.time <= 2300,
+    )
     df = pd.read_sql(query.statement, session.bind)
     session.close()
     return df
@@ -34,7 +41,7 @@ def _reshape_to_daily_functions(df: pd.DataFrame, lambda_col: str) -> pd.DataFra
     Each row = one day (station_id, day, date_type, month, day_of_week, λ_t1 ... λ_tN)
     """
     grouped = (
-        df.groupby(["station_id", "day", "date_type", "month", "day_of_week"])[
+        df.groupby(["station_id", "day", "date_type", "month", "day_of_week", "year"])[
             lambda_col
         ]
         .apply(list)
@@ -43,12 +50,12 @@ def _reshape_to_daily_functions(df: pd.DataFrame, lambda_col: str) -> pd.DataFra
     )
     # Remove days with incomplete 96-point curves
     grouped["n_points"] = grouped["lambda_curve"].apply(len)
-    grouped = grouped[grouped["n_points"] >= 80]  # tolerate some missing windows
+    grouped = grouped[grouped["n_points"] >= 70]  # tolerate some missing windows
     return grouped
 
 
 def _align_and_interpolate_curves(
-    curves: list[np.ndarray], target_len: int = 96
+    curves: list[np.ndarray], target_len: int = 77
 ) -> np.ndarray:
     """
     Interpolate each curve to the same length (default: 96 time windows per day).
@@ -59,7 +66,7 @@ def _align_and_interpolate_curves(
         arr = np.array(arr, dtype=float)
 
         # Skip curves with almost no valid data
-        if np.sum(~np.isnan(arr)) < 10:  # fewer than 10 valid points
+        if np.sum(~np.isnan(arr)) < 70:  # fewer than 70 valid points
             continue
 
         # Fill NaNs by interpolation (linear over valid indices)

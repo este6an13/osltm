@@ -21,6 +21,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score, pairwise_distances, silhouette_score
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
+from sqlalchemy.orm import Session
 
 # Import your project dependencies
 from src.db.session_v1 import SessionLocal
@@ -33,11 +34,15 @@ from src.repo.v1.stations.models import Station
 
 
 def _load_estimate_data() -> pd.DataFrame:
-    """Load all estimate records from the database."""
-    from sqlalchemy.orm import Session
-
+    """
+    Load estimate records for selected stations from the database.
+    Filters to include only time windows between 04:00 (400) and 23:00 (2300).
+    """
     session: Session = SessionLocal()
-    query = session.query(Estimate)
+    query = session.query(Estimate).filter(
+        Estimate.time >= 400,
+        Estimate.time <= 2300,
+    )
     df = pd.read_sql(query.statement, session.bind)
     session.close()
     return df
@@ -45,7 +50,6 @@ def _load_estimate_data() -> pd.DataFrame:
 
 def _load_station_info() -> pd.DataFrame:
     """Load station id, code, and name from DB."""
-    from sqlalchemy.orm import Session
 
     session: Session = SessionLocal()
     query = session.query(Station.id, Station.code, Station.name)
@@ -55,41 +59,55 @@ def _load_station_info() -> pd.DataFrame:
 
 
 def _reshape_to_daily_functions(df: pd.DataFrame, lambda_col: str) -> pd.DataFrame:
-    """Convert raw 15-min records into one vector per day (discrete function)."""
+    """
+    Convert raw 15-min records into one vector per day (a discrete function).
+    Each row = one day (station_id, day, date_type, month, day_of_week, λ_t1 ... λ_tN)
+    """
     grouped = (
-        df.groupby(["station_id", "day", "date_type", "month", "day_of_week"])[
+        df.groupby(["station_id", "day", "date_type", "month", "day_of_week", "year"])[
             lambda_col
         ]
         .apply(list)
         .reset_index()
         .rename(columns={lambda_col: "lambda_curve"})
     )
+    # Remove days with incomplete 96-point curves
     grouped["n_points"] = grouped["lambda_curve"].apply(len)
-    grouped = grouped[grouped["n_points"] >= 80]  # tolerate some missing windows
+    grouped = grouped[grouped["n_points"] >= 70]  # tolerate some missing windows
     return grouped
 
 
 def _align_and_interpolate_curves(
-    curves: list[np.ndarray], target_len: int = 96
+    curves: list[np.ndarray], target_len: int = 77
 ) -> np.ndarray:
-    """Interpolate each curve to same length and fill NaNs."""
+    """
+    Interpolate each curve to the same length (default: 96 time windows per day).
+    Handles NaNs via linear interpolation; drops curves with too few valid points.
+    """
     aligned = []
     for arr in curves:
         arr = np.array(arr, dtype=float)
-        if np.sum(~np.isnan(arr)) < 10:
+
+        # Skip curves with almost no valid data
+        if np.sum(~np.isnan(arr)) < 70:  # fewer than 70 valid points
             continue
+
+        # Fill NaNs by interpolation (linear over valid indices)
         x = np.arange(len(arr))
         if np.any(np.isnan(arr)):
             valid = ~np.isnan(arr)
-            arr = np.interp(x, x[valid], arr[valid])
+            arr = np.interp(x, x[valid], arr[valid])  # interpolate NaNs
+
         # Interpolate to common length
         n = len(arr)
         x_old = np.linspace(0, 1, n)
         x_new = np.linspace(0, 1, target_len)
         arr_interp = np.interp(x_new, x_old, arr)
         aligned.append(arr_interp)
+
     if not aligned:
         return np.empty((0, target_len))
+
     return np.stack(aligned)
 
 
