@@ -3,6 +3,8 @@ osltm.db
 osltm.db-journal
 osltm_v1.db-journal
 osltm_v1.db
+osltm_v2.db-journal
+osltm_v2.db
 temp_downloads/
 
 # Python-generated files

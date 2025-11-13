@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 
-from src.db.session_v1 import Base
+from src.db.config import Base
 
 
 class Station(Base):
@@ -19,8 +19,8 @@ class Station(Base):
     name = Column(String(255), nullable=False)
 
     # Relationships
-    estimates = relationship(
-        "Estimate", back_populates="station", cascade="all, delete-orphan"
+    counts_15min = relationship(
+        "Counts15Min", back_populates="station", cascade="all, delete-orphan"
     )
 
     def __repr__(self):
