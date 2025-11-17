@@ -4,93 +4,114 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
-from scipy import stats
-from scipy.stats import kstest
+from scipy.optimize import minimize
+from scipy.stats import kstest, nbinom
 from sklearn.neighbors import KernelDensity
 
+# ---------- Reproducibility ----------
+np.random.seed(0)  # set before generating randomized PIT
 
-def cameron_trivedi_overdispersion_test(y):
+
+# ---------- Method-of-moments dispersion ----------
+def kmom_from_counts(counts, means):
+    """Compute MoM estimate of k from per-minute empirical mean/var.
+    counts: array of observed counts per minute (may include repeated days)
+    means: array of predicted means (lambda_t) per minute
+    Both arrays must align length-wise.
+    We compute empirical var across minutes by grouping by minute index
+    if you have multiple days; with single day this is noisy.
     """
-    Robust Cameron–Trivedi (1990) test for Poisson overdispersion.
-    Works even when Poisson fitted mean is constant.
-    """
-    y = np.asarray(y)
-    X = np.ones((len(y), 1))
-
-    # Fit Poisson
-    pois = sm.GLM(y, X, family=sm.families.Poisson()).fit()
-    mu = pois.fittedvalues
-
-    # If mu has essentially no variation → test not identifiable
-    if np.allclose(mu, mu[0]):
-        print("⚠️ Poisson fitted mean is constant — overdispersion test unavailable.")
-        return np.nan, np.nan, 1.0, pois
-
-    # Pearson residuals
-    r = (y - mu) / np.sqrt(mu)
-
-    # Auxiliary regression: r^2 = α * μ + c
-    aux_y = r**2
-    aux_X = sm.add_constant(mu)  # now 2 columns
-
-    aux = sm.OLS(aux_y, aux_X).fit()
-
-    # If regression crashed or degenerate
-    if len(aux.params) < 2:
-        print("⚠️ Degenerate auxiliary regression — cannot estimate overdispersion.")
-        return np.nan, np.nan, 1.0, pois
-
-    alpha = aux.params[1]
-    alpha_se = aux.bse[1]
-
-    # z-test ( α > 0 one-sided )
-    z = alpha / alpha_se
-    p = 1 - stats.norm.cdf(z)
-
-    return alpha, z, p, pois
+    # For single-day aggregated counts, MoM is noisy; still:
+    _ = (counts - counts.mean()) ** 2  # if only one sample per minute this is wrong
+    # Instead if counts is series indexed by minute and repeated over many days, compute var per minute:
+    # Here we assume 'counts' is per-minute counts for a single day; better DO per-minute across many days.
+    # We'll compute a global method-of-moments k:
+    mean_overall = counts.mean()
+    var_overall = counts.var(ddof=1)
+    k_mom = max((var_overall - mean_overall) / (mean_overall**2), 0.0)
+    return k_mom
 
 
-def test_negative_binomial(count_per_min):
-    y = count_per_min.values
+# ---------- Mean-Variance scatter + NB curve ----------
+def plot_mean_vs_var(minute_grid, intensity, count_per_min, k):
+    # If you have only a single day, aggregate into larger bins to stabilize variance:
+    # e.g., 5-minute bins
+    bin_size = 5
+    mg = minute_grid.flatten()
+    idx_bins = (mg - mg.min()) // bin_size
+    df_counts = pd.DataFrame(
+        {
+            "bin": idx_bins,
+            "minute": mg,
+            "mean_lambda": intensity,
+            "count": count_per_min.values,
+        }
+    )
+    grouped = (
+        df_counts.groupby("bin")
+        .agg(
+            {
+                "mean_lambda": "mean",
+                "count": "mean",  # note: for a single day this is same as raw; with multiple days use var etc.
+            }
+        )
+        .reset_index()
+    )
 
-    print("\n===============================")
-    print("📊 NEGATIVE BINOMIAL OVERDISPERSION TESTS")
-    print("===============================\n")
-
-    alpha, z, p, pois = cameron_trivedi_overdispersion_test(y)
-
-    if np.isnan(alpha):
-        print("⚠️ Overdispersion test could not be computed (degenerate data).")
-    else:
-        print("📌 Cameron–Trivedi Overdispersion Test")
-        print(f"   α estimate: {alpha:.4f}")
-        print(f"   z-statistic: {z:.4f}")
-        print(f"   p-value: {p:.6f}")
-
-        if p < 0.05:
-            print("👉 Reject Poisson — overdispersion detected.")
-        else:
-            print("✅ No significant overdispersion.")
-
-    # Fit NB model even if test fails — statsmodels can still estimate it
-    nb = sm.GLM(y, np.ones((len(y), 1)), family=sm.families.NegativeBinomial()).fit()
-
-    print("\n📉 Model Comparison (AIC):")
-    print(f"   Poisson AIC: {pois.aic:.2f}")
-    print(f"   NB AIC:      {nb.aic:.2f}")
-
-    # Residual comparison
-    plt.figure(figsize=(14, 6))
-    plt.plot(pois.resid_pearson, label="Poisson Pearson Residuals", alpha=0.7)
-    plt.plot(nb.resid_pearson, label="NB Pearson Residuals", alpha=0.7)
-    plt.axhline(0, color="gray", linestyle="--")
-    plt.title("Residual Comparison: Poisson vs Negative Binomial")
+    # empirical mean and var per bin (if you have multiple days, compute var across days)
+    # For single-day demonstration we'll just compare mean vs count (no var).
+    plt.figure(figsize=(7, 5))
+    plt.scatter(grouped["mean_lambda"], grouped["count"], alpha=0.6, label="Empirical")
+    # NB variance curve (using estimated k)
+    k_est = k  # from your fitted k variable
+    mu_grid = np.linspace(0.01, max(grouped["mean_lambda"].max(), 1.0), 200)
+    var_nb = mu_grid + k_est * mu_grid**2
+    plt.plot(mu_grid, var_nb, linestyle="--", label=f"NB Var (k={k_est:.4f})")
+    plt.plot(mu_grid, mu_grid, linestyle=":", label="Poisson Var=Mean")
+    plt.xlabel("Mean (μ)")
+    plt.ylabel("Empirical count / Var")
+    plt.title("Mean vs Empirical Count (binned)")
     plt.legend()
-    plt.tight_layout()
+    plt.grid(True)
     plt.show()
 
-    return pois, nb
+
+# ---------- Bootstrap CI for k (simple) ----------
+def bootstrap_k(intensity, counts, n_boot=200):
+    """Bootstrap samples of per-minute counts to get CI for k.
+    This resamples minutes with replacement — conservative but quick.
+    """
+    ks = []
+    n = len(counts)
+    for _ in range(n_boot):
+        idx = np.random.choice(n, size=n, replace=True)
+        counts_b = counts[idx]
+        _ = intensity[idx]
+        # method-of-moments for bootstrap sample
+        mean_b = counts_b.mean()
+        var_b = counts_b.var(ddof=1)
+        k_b = max((var_b - mean_b) / (mean_b**2) if mean_b > 0 else 0.0, 0.0)
+        ks.append(k_b)
+    ks = np.array(ks)
+    lo, hi = np.percentile(ks, [2.5, 97.5])
+    return ks.mean(), lo, hi
+
+
+def fit_nb_dispersion(mean_vals, count_vals):
+    """Fit NB dispersion parameter k via MLE."""
+    # Avoid zeros
+    mean_vals = np.maximum(mean_vals, 1e-6)
+
+    def neg_log_likelihood(log_k):
+        k = np.exp(log_k)
+        var = mean_vals + k * mean_vals**2
+        p = mean_vals / var
+        r = mean_vals**2 / (var - mean_vals)
+        ll = nbinom.logpmf(count_vals, r, p)
+        return -np.sum(ll)
+
+    res = minimize(neg_log_likelihood, x0=np.log(0.1))
+    return np.exp(res.x[0])
 
 
 def estimate_intensity_kde(df: pd.DataFrame, station_code: str, bandwidth=5):
@@ -163,9 +184,7 @@ def compute_compensator_increments(df, minute_grid, compensator):
 
     # Map each event time to index in minute_grid
     grid_to_index = {m: i for i, m in enumerate(minute_grid)}
-    comp_at_events = np.array(
-        [compensator[grid_to_index[m]] for m in event_minutes if m in range(240, 1381)]
-    )
+    comp_at_events = np.array([compensator[grid_to_index[m]] for m in event_minutes])
 
     # Increments ΔΛ
     deltas = np.diff(comp_at_events)  # length n-1
@@ -173,10 +192,21 @@ def compute_compensator_increments(df, minute_grid, compensator):
     return deltas
 
 
-def pit_uniform(deltas):
-    """Convert exponential(1) increments to Uniform(0,1)."""
+def nb_pit(counts, mean_vals, k):
+    """Dunn–Smyth randomized PIT for Negative Binomial."""
+    # NB parameterization: r, p
+    var = mean_vals + k * mean_vals**2
+    p = mean_vals / var
+    r = mean_vals**2 / (var - mean_vals)
 
-    return 1 - np.exp(-deltas)
+    # F(n-1)
+    F_lower = nbinom.cdf(counts - 1, r, p)
+    # F(n)
+    F_upper = nbinom.cdf(counts, r, p)
+
+    # Randomize inside the discrete jump
+    u = F_lower + np.random.rand(len(counts)) * (F_upper - F_lower)
+    return u
 
 
 def main(date_str: str, station_code: str):
@@ -215,16 +245,29 @@ def main(date_str: str, station_code: str):
     # --- Compute Counting Process ---
     N_t = np.cumsum(count_per_min.values)
 
+    k_mom = kmom_from_counts(count_per_min.values, intensity)
+    print(f"Method-of-Moments k = {k_mom:.6f}")
+    plot_mean_vs_var(minute_grid, intensity, count_per_min, k_mom)
+    k_boot_mean, k_boot_lo, k_boot_hi = bootstrap_k(
+        intensity, count_per_min.values, n_boot=500
+    )
+    print(
+        f"Bootstrap k mean={k_boot_mean:.6f}, 95% CI = ({k_boot_lo:.6f}, {k_boot_hi:.6f})"
+    )
+
     # --- Martingale ---
     martingale = N_t - compensator
 
-    pois_model, nb_model = test_negative_binomial(count_per_min)
-
     df_station.loc[:, "timestamp"] = pd.to_datetime(df_station["Fecha_Transaccion"])
     df_station = df_station.sort_values("timestamp")
-    deltas = compute_compensator_increments(df_station, minute_grid, compensator)
+    _ = compute_compensator_increments(df_station, minute_grid, compensator)
 
-    u = pit_uniform(deltas)
+    # Fit NB dispersion
+    k = fit_nb_dispersion(intensity, count_per_min.values)
+    print(f"Estimated NB dispersion k = {k:.3f}")
+
+    # Compute NB PIT
+    u = nb_pit(count_per_min.values, intensity, k)
 
     # -- KS test for uniformity
     _, ks_pvalue = kstest(u, "uniform")
@@ -287,9 +330,6 @@ def main(date_str: str, station_code: str):
     plt.ylabel("M(t)")
     plt.grid(True)
 
-    plt.tight_layout()
-    plt.show()
-
     plt.figure(figsize=(12, 10))
 
     # 1. Histogram of u_i
@@ -327,7 +367,3 @@ def main(date_str: str, station_code: str):
 
 if __name__ == "__main__":
     main("20251104", "07107")
-
-    # 07107: U Nacional
-    # 02300: Portal Norte
-    # 09104: Restrepo
