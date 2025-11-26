@@ -53,13 +53,13 @@ def cluster_arrival_timestamps(
     return df
 
 
-def main(
+def run_time_series_inner_clustering(
     date_str: str,
     station_code: str,
     time_start: int = 400,  # optional time window start HHMM
     time_end: int = 2300,  # optional time window end HHMM
 ):
-    folder_path = "data/check_ins/daily"
+    folder_path = "../../../../data/check_ins/daily"
     file_path = os.path.join(folder_path, f"{date_str}.csv")
 
     if not os.path.exists(file_path):
@@ -155,4 +155,4 @@ def main(
 if __name__ == "__main__":
     # Example:
     # main("20251104", "07107", 600, 2100)
-    main("20251104", "07107", 500, 600)
+    run_time_series_inner_clustering("20251104", "07107", 500, 600)

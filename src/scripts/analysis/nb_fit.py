@@ -184,7 +184,9 @@ def compute_compensator_increments(df, minute_grid, compensator):
 
     # Map each event time to index in minute_grid
     grid_to_index = {m: i for i, m in enumerate(minute_grid)}
-    comp_at_events = np.array([compensator[grid_to_index[m]] for m in event_minutes])
+    comp_at_events = np.array(
+        [compensator[grid_to_index[m]] for m in event_minutes if m in range(240, 1381)]
+    )
 
     # Increments ΔΛ
     deltas = np.diff(comp_at_events)  # length n-1
@@ -209,9 +211,9 @@ def nb_pit(counts, mean_vals, k):
     return u
 
 
-def main(date_str: str, station_code: str):
+def run_nb_fit(date_str: str, station_code: str):
     # Load data
-    folder_path = "data/check_ins/daily"
+    folder_path = "../../../../data/check_ins/daily"
     file_path = os.path.join(folder_path, f"{date_str}.csv")
 
     if not os.path.exists(file_path):
@@ -366,4 +368,4 @@ def main(date_str: str, station_code: str):
 
 
 if __name__ == "__main__":
-    main("20251104", "07107")
+    run_nb_fit("20251104", "07107")

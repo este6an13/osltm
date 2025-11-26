@@ -179,9 +179,9 @@ def pit_uniform(deltas):
     return 1 - np.exp(-deltas)
 
 
-def main(date_str: str, station_code: str):
+def run_kde_intensity_estimation(date_str: str, station_code: str):
     # Load data
-    folder_path = "data/check_ins/daily"
+    folder_path = "../../../../data/check_ins/daily"
     file_path = os.path.join(folder_path, f"{date_str}.csv")
 
     if not os.path.exists(file_path):
@@ -326,7 +326,7 @@ def main(date_str: str, station_code: str):
 
 
 if __name__ == "__main__":
-    main("20251104", "07107")
+    run_kde_intensity_estimation("20251104", "07107")
 
     # 07107: U Nacional
     # 02300: Portal Norte
