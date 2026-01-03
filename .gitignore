@@ -6,6 +6,7 @@ osltm_v1.db
 osltm_v2.db-journal
 osltm_v2.db
 temp_downloads/
+*stations_reference.csv
 
 # Python-generated files
 __pycache__/

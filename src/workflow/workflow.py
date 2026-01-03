@@ -16,11 +16,13 @@ from typing import Any
 
 from src.workflow.steps.step1_sample_dates import run as run_step1
 from src.workflow.steps.step2_download_files import run as run_step2
+from src.workflow.steps.step3_sample_stations import run as run_step3
 
 # Registry of all workflow steps
 STEPS = {
     1: ("Sample Stratified Dates", run_step1),
     2: ("Download Daily Data", run_step2),
+    3: ("Sample Stations", run_step3),
 }
 
 

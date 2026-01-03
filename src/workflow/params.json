@@ -11,6 +11,12 @@
         "ins_path": "data/check_ins/daily",
         "outs_path": "data/check_outs/daily"
     },
-    "sampled_dates": null
+    "step3": {
+        "n_files": 10,
+        "n_stations": 20,
+        "reference_csv_path": "src/workflow/stations_reference.csv"
+    },
+    "sampled_dates": null,
+    "sampled_stations": null
 }
 
