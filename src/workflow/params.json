@@ -16,6 +16,11 @@
         "n_stations": 20,
         "reference_csv_path": "src/workflow/stations_reference.csv"
     },
+    "step4": {
+        "persistence_dir": "src/workflow/persistence",
+        "process_checkins": true,
+        "process_checkouts": true
+    },
     "sampled_dates": null,
     "sampled_stations": null
 }

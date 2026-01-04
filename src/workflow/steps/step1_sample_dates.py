@@ -8,7 +8,10 @@ in the params dict under 'sampled_dates' for use by subsequent steps.
 import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 from src.utils.day_type import get_day_type
 
@@ -112,7 +115,18 @@ def run(params: dict[str, Any]) -> None:
     )
 
     # Store results in params for next steps
-    params["sampled_dates"] = [d.strftime("%Y%m%d") for d in sampled]
+    sampled_dates_str = [d.strftime("%Y%m%d") for d in sampled]
+    params["sampled_dates"] = sampled_dates_str
+
+    # Save to persistence CSV
+    persistence_dir = Path(
+        params.get("step4", {}).get("persistence_dir", "src/workflow/persistence")
+    )
+    persistence_dir.mkdir(parents=True, exist_ok=True)
+    dates_df = pd.DataFrame({"date": sampled_dates_str})
+    dates_file = persistence_dir / "sampled_dates.csv"
+    dates_df.to_csv(dates_file, index=False)
+    print(f"💾 Saved {len(sampled_dates_str)} dates to {dates_file}")
 
     print(f"✅ Sampled {len(sampled)} unique dates:")
     for d in sampled:

@@ -153,12 +153,23 @@ def run(params: dict[str, Any]) -> None:
         )
 
     # Store sampled stations in params
-    params["sampled_stations"] = [
+    sampled_stations_list = [
         {"code": code, "name": unique_stations[code]} for code in sampled_station_codes
     ]
+    params["sampled_stations"] = sampled_stations_list
+
+    # Save to persistence CSV
+    persistence_dir = Path(
+        params.get("step4", {}).get("persistence_dir", "src/workflow/persistence")
+    )
+    persistence_dir.mkdir(parents=True, exist_ok=True)
+    stations_df = pd.DataFrame(sampled_stations_list)
+    stations_file = persistence_dir / "sampled_stations.csv"
+    stations_df.to_csv(stations_file, index=False)
+    print(f"💾 Saved {len(sampled_stations_list)} stations to {stations_file}")
 
     print(f"\n🎯 Sampled {len(sampled_station_codes)} stations:")
-    for station in params["sampled_stations"]:
+    for station in sampled_stations_list:
         print(f"   {station['code']}: {station['name']}")
 
 
