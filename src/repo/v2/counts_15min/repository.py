@@ -1,9 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from src.repo.v2.counts_15min.models import Counts15Min
+from src.repo.v2.stations.models import Station
 
 
 class Counts15MinRepository:
@@ -123,3 +124,71 @@ class Counts15MinRepository:
             self.db.execute(stmt)
 
         self.db.commit()
+
+    def get_counts_by_dates_and_stations(
+        self,
+        dates: List[str],
+        station_codes: Optional[Set[str]] = None,
+        include_checkins: bool = True,
+        include_checkouts: bool = True,
+    ) -> List[Counts15Min]:
+        """
+        Query counts by date strings (YYYYMMDD format) and optionally by station codes.
+
+        Args:
+            dates: List of date strings in YYYYMMDD format (e.g., ["20240625", "20240628"])
+            station_codes: Optional set of station codes to filter by. If None, includes all stations.
+            include_checkins: Whether to include check-in counts (count_in)
+            include_checkouts: Whether to include check-out counts (count_out)
+
+        Returns:
+            List of Counts15Min records matching the criteria
+        """
+        # Parse dates into year, month, day tuples
+        date_tuples = []
+        for date_str in dates:
+            if len(date_str) != 8:
+                continue
+            year = int(date_str[:4])
+            month = int(date_str[4:6])
+            day = int(date_str[6:8])
+            date_tuples.append((year, month, day))
+
+        if not date_tuples:
+            return []
+
+        # Build query with joins to stations
+        query = (
+            self.db.query(self.model)
+            .join(Station, self.model.station_id == Station.id)
+            .options(joinedload(self.model.station))
+        )
+
+        # Filter by dates using OR conditions
+        from sqlalchemy import or_
+
+        date_filters = [
+            (self.model.year == year)
+            & (self.model.month == month)
+            & (self.model.day == day)
+            for year, month, day in date_tuples
+        ]
+        query = query.filter(or_(*date_filters))
+
+        # Filter by station codes if provided
+        if station_codes:
+            query = query.filter(Station.code.in_(station_codes))
+
+        # Filter by count type (only include rows with the requested count types)
+        count_filters = []
+        if include_checkins:
+            count_filters.append(self.model.count_in.isnot(None))
+        if include_checkouts:
+            count_filters.append(self.model.count_out.isnot(None))
+
+        if count_filters:
+            from sqlalchemy import or_ as or_filter
+
+            query = query.filter(or_filter(*count_filters))
+
+        return query.all()

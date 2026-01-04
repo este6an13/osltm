@@ -21,6 +21,7 @@ from src.repo.v2.processing.repository import ProcessedFileRepository
 from src.repo.v2.stations.repository import StationRepository
 from src.utils.day_type import get_day_type
 from src.utils.stations import extract_station_info
+from src.workflow.data_loader import load_persisted_data
 
 PROCESS_TYPE_INS = "daily_check_ins_counts_15min"
 PROCESS_TYPE_OUTS = "daily_check_outs_counts_15min"
@@ -28,36 +29,6 @@ PROCESS_TYPE_OUTS = "daily_check_outs_counts_15min"
 # Time range: 400 (04:00) to 2300 (23:00)
 TIME_MIN = 400
 TIME_MAX = 2300
-
-
-def load_persisted_data(
-    persistence_dir: Path,
-) -> tuple[list[str] | None, list[dict] | None]:
-    """
-    Load persisted sampled_dates and sampled_stations from CSV files.
-
-    Returns:
-        Tuple of (sampled_dates, sampled_stations) or (None, None) if files don't exist
-    """
-    dates_file = persistence_dir / "sampled_dates.csv"
-    stations_file = persistence_dir / "sampled_stations.csv"
-
-    sampled_dates = None
-    sampled_stations = None
-
-    if dates_file.exists():
-        df = pd.read_csv(dates_file)
-        sampled_dates = df["date"].tolist()
-        print(f"📂 Loaded {len(sampled_dates)} persisted dates from {dates_file}")
-
-    if stations_file.exists():
-        df = pd.read_csv(stations_file)
-        sampled_stations = df.to_dict("records")
-        print(
-            f"📂 Loaded {len(sampled_stations)} persisted stations from {stations_file}"
-        )
-
-    return sampled_dates, sampled_stations
 
 
 def save_persisted_data(
