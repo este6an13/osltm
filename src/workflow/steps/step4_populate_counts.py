@@ -26,10 +26,6 @@ from src.workflow.data_loader import load_persisted_data
 PROCESS_TYPE_INS = "daily_check_ins_counts_15min"
 PROCESS_TYPE_OUTS = "daily_check_outs_counts_15min"
 
-# Time range: 400 (04:00) to 2300 (23:00)
-TIME_MIN = 400
-TIME_MAX = 2300
-
 
 def save_persisted_data(
     persistence_dir: Path, sampled_dates: list[str], sampled_stations: list[dict]
@@ -50,10 +46,12 @@ def save_persisted_data(
     print(f"💾 Saved {len(sampled_stations)} stations to {stations_file}")
 
 
-def compute_checkin_counts_for_station(df: pd.DataFrame, station_id: int) -> list[dict]:
+def compute_checkin_counts_for_station(
+    df: pd.DataFrame, station_id: int, time_min: int = 400, time_max: int = 2300
+) -> list[dict]:
     """
     Compute total check-in counts and 1-min variance within each 15-minute window.
-    Filters to time range 400-2300.
+    Filters to time range specified by time_min and time_max.
     Returns a list of dicts ready for bulk upsert.
     """
     if df.empty:
@@ -93,10 +91,10 @@ def compute_checkin_counts_for_station(df: pd.DataFrame, station_id: int) -> lis
         + per_15min_stats["window_15min"].dt.minute
     )
 
-    # Filter by time range (400-2300)
+    # Filter by time range
     per_15min_stats = per_15min_stats[
-        (per_15min_stats["time_int"] >= TIME_MIN)
-        & (per_15min_stats["time_int"] <= TIME_MAX)
+        (per_15min_stats["time_int"] >= time_min)
+        & (per_15min_stats["time_int"] <= time_max)
     ]
 
     # Prepare dicts for bulk upsert
@@ -122,11 +120,11 @@ def compute_checkin_counts_for_station(df: pd.DataFrame, station_id: int) -> lis
 
 
 def compute_checkout_counts_for_station(
-    df: pd.DataFrame, station_id: int
+    df: pd.DataFrame, station_id: int, time_min: int = 400, time_max: int = 2300
 ) -> list[dict]:
     """
     Compute total check-out counts per 15-minute window for a single station.
-    Filters to time range 400-2300.
+    Filters to time range specified by time_min and time_max.
     Returns a list of dicts ready for bulk upsert.
     """
     if df.empty:
@@ -154,9 +152,9 @@ def compute_checkout_counts_for_station(
         grouped["window_15min"].dt.hour * 100 + grouped["window_15min"].dt.minute
     )
 
-    # Filter by time range (400-2300)
+    # Filter by time range
     grouped = grouped[
-        (grouped["time_int"] >= TIME_MIN) & (grouped["time_int"] <= TIME_MAX)
+        (grouped["time_int"] >= time_min) & (grouped["time_int"] <= time_max)
     ]
 
     # Build rows for bulk upsert
@@ -187,6 +185,8 @@ def process_checkins(
     sampled_stations: list[dict],
     ins_path: Path,
     persistence_dir: Path,
+    time_min: int = 400,
+    time_max: int = 2300,
 ) -> None:
     """Process check-in files for sampled dates and stations."""
     counts_repo = Counts15MinRepository(session)
@@ -197,7 +197,7 @@ def process_checkins(
         f"\n📊 Processing check-ins for {len(sampled_dates)} dates and {len(sampled_station_codes)} stations"
     )
     print(
-        f"   Time range: {TIME_MIN} ({TIME_MIN // 100:02d}:00) to {TIME_MAX} ({TIME_MAX // 100:02d}:00)"
+        f"   Time range: {time_min} ({time_min // 100:02d}:00) to {time_max} ({time_max // 100:02d}:00)"
     )
 
     # Preload stations and ensure sampled stations exist
@@ -267,7 +267,11 @@ def process_checkins(
                 station_id = station_id_map.get(station_code)
                 if not station_id:
                     continue
-                all_counts.extend(compute_checkin_counts_for_station(group, station_id))
+                all_counts.extend(
+                    compute_checkin_counts_for_station(
+                        group, station_id, time_min, time_max
+                    )
+                )
 
             # Bulk upsert results
             if all_counts:
@@ -296,6 +300,8 @@ def process_checkouts(
     sampled_stations: list[dict],
     outs_path: Path,
     persistence_dir: Path,
+    time_min: int = 400,
+    time_max: int = 2300,
 ) -> None:
     """Process check-out files for sampled dates and stations."""
     counts_repo = Counts15MinRepository(session)
@@ -306,7 +312,7 @@ def process_checkouts(
         f"\n📊 Processing check-outs for {len(sampled_dates)} dates and {len(sampled_station_codes)} stations"
     )
     print(
-        f"   Time range: {TIME_MIN} ({TIME_MIN // 100:02d}:00) to {TIME_MAX} ({TIME_MAX // 100:02d}:00)"
+        f"   Time range: {time_min} ({time_min // 100:02d}:00) to {time_max} ({time_max // 100:02d}:00)"
     )
 
     # Preload stations and ensure sampled stations exist
@@ -382,7 +388,9 @@ def process_checkouts(
                 if not station_id:
                     continue
                 all_counts.extend(
-                    compute_checkout_counts_for_station(group, station_id)
+                    compute_checkout_counts_for_station(
+                        group, station_id, time_min, time_max
+                    )
                 )
 
             # Bulk upsert results
@@ -424,6 +432,8 @@ def run(params: dict[str, Any]) -> None:
     )
     process_checkins_flag = step4_params.get("process_checkins", True)
     process_checkouts_flag = step4_params.get("process_checkouts", True)
+    time_min = step4_params.get("time_min", 400)
+    time_max = step4_params.get("time_max", 2300)
 
     # Try to load persisted data first
     persisted_dates, persisted_stations = load_persisted_data(persistence_dir)
@@ -471,6 +481,8 @@ def run(params: dict[str, Any]) -> None:
                 sampled_stations,
                 ins_path,
                 persistence_dir,
+                time_min,
+                time_max,
             )
 
         if process_checkouts_flag:
@@ -481,6 +493,8 @@ def run(params: dict[str, Any]) -> None:
                 sampled_stations,
                 outs_path,
                 persistence_dir,
+                time_min,
+                time_max,
             )
 
         print("\n✅ All database population complete!")

@@ -19,7 +19,10 @@
     "step4": {
         "persistence_dir": "src/workflow/persistence",
         "process_checkins": true,
-        "process_checkouts": true
+        "process_checkouts": true,
+        "time_min": 400,
+        "time_max": 2300,
+        "time_step": 15
     },
     "sampled_dates": null,
     "sampled_stations": null

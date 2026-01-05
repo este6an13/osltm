@@ -17,22 +17,19 @@ from sqlalchemy.orm import Session
 from src.db.session_v2 import SessionLocal
 from src.repo.v2.counts_15min.repository import Counts15MinRepository
 
-# Time range: 400 (04:00) to 2300 (23:00) in 15-minute intervals
-TIME_MIN = 400
-TIME_MAX = 2300
-TIME_STEP = 15
 
-
-def generate_time_columns() -> list[str]:
+def generate_time_columns(
+    time_min: int = 400, time_max: int = 2300, time_step: int = 15
+) -> list[str]:
     """Generate column names for time windows (t_400, t_415, ..., t_2300)."""
     columns = []
-    current = TIME_MIN
-    while current <= TIME_MAX:
+    current = time_min
+    while current <= time_max:
         columns.append(f"t_{current}")
-        # Increment by 15 minutes
+        # Increment by time_step minutes
         hours = current // 100
         minutes = current % 100
-        minutes += TIME_STEP
+        minutes += time_step
         if minutes >= 60:
             hours += 1
             minutes = 0
@@ -185,6 +182,9 @@ def load_data(
     include_checkouts: bool = True,
     persistence_dir: Optional[Path] = None,
     session: Optional[Session] = None,
+    time_min: int = 400,
+    time_max: int = 2300,
+    time_step: int = 15,
 ) -> dict[str, pd.DataFrame]:
     """
     Load count data from database and return as pivoted DataFrames.
@@ -200,6 +200,9 @@ def load_data(
         include_checkouts: Whether to load check-out counts (default: True)
         persistence_dir: Path to persistence directory (default: src/workflow/persistence)
         session: Optional database session. If None, creates a new one.
+        time_min: Minimum time in HHMM format (default: 400 for 04:00)
+        time_max: Maximum time in HHMM format (default: 2300 for 23:00)
+        time_step: Time step in minutes (default: 15)
 
     Returns:
         Dictionary with keys:
@@ -261,7 +264,9 @@ def load_data(
         print(f"   Stations: {len(station_codes_set) if station_codes_set else 'all'}")
 
         # Generate time columns
-        time_columns = generate_time_columns()
+        time_columns = generate_time_columns(
+            time_min=time_min, time_max=time_max, time_step=time_step
+        )
 
         # Build result dictionary
         result = {}
