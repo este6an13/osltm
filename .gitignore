@@ -11,6 +11,7 @@ temp_downloads/
 *fpca_results/
 *distance_results/
 *envelope_results/
+*clustering_results/
 
 # Python-generated files
 __pycache__/
