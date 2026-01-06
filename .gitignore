@@ -8,6 +8,7 @@ osltm_v2.db
 temp_downloads/
 *stations_reference.csv
 *persistence/
+*fpca_results/
 
 # Python-generated files
 __pycache__/
