@@ -9,6 +9,7 @@ temp_downloads/
 *stations_reference.csv
 *persistence/
 *fpca_results/
+*distance_results/
 
 # Python-generated files
 __pycache__/
