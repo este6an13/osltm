@@ -42,3 +42,13 @@ data = load_data(
     include_checkouts=True
 )
 ```
+
+### Exploratory Analysis Scripts
+
+```sh
+uv run python -m src.workflow.fpca_per_station --stations 03000
+
+uv run python -m src.workflow.within_between_distances --stations 03000
+
+uv run python -m src.workflow.mean_envelope_plots --stations 03000
+```

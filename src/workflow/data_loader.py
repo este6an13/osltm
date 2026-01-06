@@ -11,6 +11,7 @@ as columns (e.g., t_400, t_415, ..., t_2300).
 from pathlib import Path
 from typing import Literal, Optional
 
+import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
@@ -155,7 +156,7 @@ def pivot_counts_to_dataframe(
     df = df.drop(columns=["key"], errors="ignore")
     for col in time_columns:
         if col not in df.columns:
-            df[col] = None
+            df[col] = np.nan  # Use NaN instead of None for better pandas handling
 
     # Reorder columns
     base_columns = [
