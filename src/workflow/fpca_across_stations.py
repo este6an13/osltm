@@ -30,6 +30,9 @@ DATE_TYPE_LABELS = {
     "HO": "Holiday",
 }
 
+# Order for plotting (to ensure consistent facet order)
+DATE_TYPE_ORDER = ["WD", "SA", "SU", "HO"]
+
 
 def extract_all_profiles(
     df: pd.DataFrame,
@@ -140,6 +143,7 @@ def plot_fpca_results(
     date_strs: pd.Series,
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    day_types: Optional[list[str]] = None,
 ) -> None:
     """
     Plot FPCA results with points colored by station and faceted by day type.
@@ -152,6 +156,7 @@ def plot_fpca_results(
         date_strs: Series with date strings for annotation
         output_dir: Optional directory to save the plot
         count_type: Type of counts ("checkins" or "checkouts")
+        day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
     """
     if len(projected) == 0:
         print("⚠️  No data to plot")
@@ -168,6 +173,16 @@ def plot_fpca_results(
             "date_str": date_strs.values,
         }
     )
+
+    # Filter by day types if provided
+    if day_types is not None:
+        plot_df = plot_df[plot_df["date_type"].isin(day_types)].copy()
+        if plot_df.empty:
+            print("⚠️  No data for specified day types")
+            return
+        day_type_order = [dt for dt in DATE_TYPE_ORDER if dt in day_types]
+    else:
+        day_type_order = DATE_TYPE_ORDER
 
     # Map date types to labels
     plot_df["day_type_label"] = plot_df["date_type"].map(DATE_TYPE_LABELS)
@@ -187,11 +202,12 @@ def plot_fpca_results(
     station_color_map = dict(zip(unique_stations, colors))
 
     # Create faceted plot
+    col_order = [DATE_TYPE_LABELS.get(dt, dt) for dt in day_type_order]
     g = sns.FacetGrid(
         plot_df,
         col="day_type_label",
-        col_order=[DATE_TYPE_LABELS.get(dt, dt) for dt in ["WD", "SA", "SU", "HO"]],
-        col_wrap=2,
+        col_order=col_order,
+        col_wrap=2 if len(day_type_order) > 1 else 1,
         height=6,
         aspect=1.2,
         sharex=True,
@@ -265,6 +281,7 @@ def run_fpca_across_stations(
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
+    day_types: Optional[list[str]] = None,
 ) -> dict:
     """
     Run Functional PCA across all stations.
@@ -276,6 +293,7 @@ def run_fpca_across_stations(
         output_dir: Directory to save plots (default: src/workflow/fpca_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
+        day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
 
     Returns:
         Dictionary with FPCA results
@@ -318,6 +336,15 @@ def run_fpca_across_stations(
         print(f"🔍 Filtered to {len(station_codes)} specified stations")
     else:
         print("🔍 Using all stations from data")
+
+    # Filter by day types if provided
+    if day_types is not None:
+        df = df[df["date_type"].isin(day_types)].copy()
+        if df.empty:
+            raise ValueError(f"No data found for specified day types: {day_types}")
+        print(f"🔍 Filtered to day types: {day_types}")
+    else:
+        print("🔍 Using all day types from data")
 
     print(f"   Found {len(df)} (station, day) profiles")
 
@@ -374,6 +401,7 @@ def run_fpca_across_stations(
         date_strs,
         output_dir=output_dir,
         count_type=count_type,
+        day_types=day_types,
     )
 
     # Prepare results
@@ -433,6 +461,13 @@ if __name__ == "__main__":
         nargs="+",
         help="Optional list of station codes to analyze (default: all stations)",
     )
+    parser.add_argument(
+        "--day_types",
+        type=str,
+        nargs="+",
+        choices=["WD", "SA", "SU", "HO"],
+        help="Optional list of day types to include (WD, SA, SU, HO). Default: all.",
+    )
 
     args = parser.parse_args()
 
@@ -443,6 +478,7 @@ if __name__ == "__main__":
         output_dir=Path(args.output_dir),
         params_path=Path(args.params),
         station_codes=args.stations,
+        day_types=args.day_types,
     )
 
     print(f"\n📊 Summary: Analyzed {len(results['projected'])} (station, day) profiles")

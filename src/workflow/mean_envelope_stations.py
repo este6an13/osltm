@@ -213,6 +213,7 @@ def plot_mean_envelope_by_station(
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
     station_codes: Optional[list[str]] = None,
+    day_types: Optional[list[str]] = None,
 ) -> None:
     """
     Plot mean curves with envelopes for each station, faceted by day type.
@@ -225,6 +226,7 @@ def plot_mean_envelope_by_station(
         output_dir: Optional directory to save the plot
         count_type: Type of counts ("checkins" or "checkouts")
         station_codes: Optional list of station codes to include (for consistent colors)
+        day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
     """
     if not all_results:
         print("⚠️  No data to plot")
@@ -235,6 +237,20 @@ def plot_mean_envelope_by_station(
 
     # Convert time columns to hours
     hours = time_columns_to_hours(time_cols)
+
+    # Filter day types if provided (before computing station colors)
+    if day_types is not None:
+        day_type_order = [dt for dt in DATE_TYPE_ORDER if dt in day_types]
+        # Filter all_results to only include requested day types
+        all_results = {
+            dt: all_results[dt] for dt in day_type_order if dt in all_results
+        }
+    else:
+        day_type_order = [dt for dt in DATE_TYPE_ORDER if dt in all_results]
+
+    if not day_type_order:
+        print("⚠️  No day types to plot")
+        return
 
     # Get all unique stations across all day types for consistent coloring
     all_station_codes = set()
@@ -258,11 +274,19 @@ def plot_mean_envelope_by_station(
     station_color_map = dict(zip(all_station_codes, colors))
 
     # Create faceted plot using matplotlib subplots
-    fig, axes = plt.subplots(2, 2, figsize=(14, 12), sharex=True, sharey=True)
-    axes = axes.flatten()
+    n_facets = len(day_type_order)
+    n_cols = 2 if n_facets > 1 else 1
+    n_rows = (n_facets + 1) // 2 if n_facets > 1 else 1
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(14, 6 * n_rows), sharex=True, sharey=True
+    )
+    if n_facets == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten()
 
     # Plot each day type
-    for idx, day_type in enumerate(DATE_TYPE_ORDER):
+    for idx, day_type in enumerate(day_type_order):
         if day_type not in all_results:
             continue
 
@@ -346,7 +370,7 @@ def plot_mean_envelope_by_station(
             )
 
     # Hide unused subplots
-    for idx in range(len(DATE_TYPE_ORDER), len(axes)):
+    for idx in range(len(day_type_order), len(axes)):
         axes[idx].set_visible(False)
 
     # Add main title
@@ -378,6 +402,7 @@ def run_mean_envelope_by_station(
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
+    day_types: Optional[list[str]] = None,
 ) -> dict:
     """
     Run mean envelope analysis across stations, grouped by day type.
@@ -390,6 +415,7 @@ def run_mean_envelope_by_station(
         output_dir: Directory to save plots (default: src/workflow/envelope_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
+        day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
 
     Returns:
         Dictionary with results for each day type
@@ -435,11 +461,19 @@ def run_mean_envelope_by_station(
 
     print(f"   Found {len(df)} (station, day) profiles")
 
+    # Determine which day types to process
+    if day_types is not None:
+        day_types_to_process = [dt for dt in DATE_TYPE_ORDER if dt in day_types]
+        print(f"🔍 Processing day types: {day_types_to_process}")
+    else:
+        day_types_to_process = DATE_TYPE_ORDER
+        print("🔍 Processing all day types")
+
     # Process each day type
     all_results = {}
     time_cols = None
 
-    for day_type in DATE_TYPE_ORDER:
+    for day_type in day_types_to_process:
         print(f"\n📈 Processing day type: {DATE_TYPE_LABELS.get(day_type, day_type)}")
 
         # Extract time series data for this day type
@@ -500,6 +534,7 @@ def run_mean_envelope_by_station(
         output_dir=output_dir,
         count_type=count_type,
         station_codes=station_codes,
+        day_types=day_types,
     )
 
     print(f"\n✅ Completed analysis for {len(all_results)} day types")
@@ -554,6 +589,13 @@ if __name__ == "__main__":
         nargs="+",
         help="Optional list of station codes to analyze (default: all stations)",
     )
+    parser.add_argument(
+        "--day_types",
+        type=str,
+        nargs="+",
+        choices=["WD", "SA", "SU", "HO"],
+        help="Optional list of day types to include (WD, SA, SU, HO). Default: all.",
+    )
 
     args = parser.parse_args()
 
@@ -565,6 +607,7 @@ if __name__ == "__main__":
         output_dir=Path(args.output_dir),
         params_path=Path(args.params),
         station_codes=args.stations,
+        day_types=args.day_types,
     )
 
     print(f"\n📊 Generated plots for {len(results)} day types")
