@@ -12,6 +12,7 @@ temp_downloads/
 *distance_results/
 *envelope_results/
 *clustering_results/
+*heatmap_results/
 
 # Python-generated files
 __pycache__/
