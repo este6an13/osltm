@@ -290,7 +290,7 @@ def run_fpca_across_stations(
         count_type: Type of counts to analyze ("checkins" or "checkouts")
         n_components: Number of principal components (default: 2)
         standardize: Whether to standardize data before PCA (default: True)
-        output_dir: Directory to save plots (default: src/workflow/fpca_results)
+        output_dir: Directory to save plots (default: src/workflow/results/fpca_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
         day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
@@ -399,7 +399,7 @@ def run_fpca_across_stations(
 
     # Set output directory
     if output_dir is None:
-        output_dir = Path("src/workflow/fpca_results")
+        output_dir = Path("src/workflow/results/fpca_results")
     output_dir = Path(output_dir)
 
     # Plot results
@@ -456,8 +456,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="src/workflow/fpca_results",
-        help="Directory to save plots (default: src/workflow/fpca_results)",
+        default="src/workflow/results/fpca_results",
+        help="Directory to save plots (default: src/workflow/results/fpca_results)",
     )
     parser.add_argument(
         "--params",

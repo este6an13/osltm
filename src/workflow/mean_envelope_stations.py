@@ -412,7 +412,7 @@ def run_mean_envelope_by_station(
         envelope_type: "std" for ±1 std band, "quantile" for quantile envelope
         quantile_low: Lower quantile (default: 0.1 for 10%)
         quantile_high: Upper quantile (default: 0.9 for 90%)
-        output_dir: Directory to save plots (default: src/workflow/envelope_results)
+        output_dir: Directory to save plots (default: src/workflow/results/envelope_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
         day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
@@ -533,7 +533,7 @@ def run_mean_envelope_by_station(
 
     # Set output directory
     if output_dir is None:
-        output_dir = Path("src/workflow/envelope_results")
+        output_dir = Path("src/workflow/results/envelope_results")
     output_dir = Path(output_dir)
 
     # Plot results
@@ -584,8 +584,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="src/workflow/envelope_results",
-        help="Directory to save plots (default: src/workflow/envelope_results)",
+        default="src/workflow/results/envelope_results",
+        help="Directory to save plots (default: src/workflow/results/envelope_results)",
     )
     parser.add_argument(
         "--params",

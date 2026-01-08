@@ -381,7 +381,7 @@ def run_distance_analysis(
 
     Args:
         count_type: Type of counts to analyze ("checkins" or "checkouts")
-        output_dir: Directory to save plots (default: src/workflow/distance_results)
+        output_dir: Directory to save plots (default: src/workflow/results/distance_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all from persistence.
         plot: Whether to generate plots (default: True)
@@ -440,7 +440,7 @@ def run_distance_analysis(
 
     # Set output directory
     if output_dir is None:
-        output_dir = Path("src/workflow/distance_results")
+        output_dir = Path("src/workflow/results/distance_results")
     output_dir = Path(output_dir)
 
     results_list = []
@@ -542,8 +542,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="src/workflow/distance_results",
-        help="Directory to save plots and results (default: src/workflow/distance_results)",
+        default="src/workflow/results/distance_results",
+        help="Directory to save plots and results (default: src/workflow/results/distance_results)",
     )
     parser.add_argument(
         "--params",

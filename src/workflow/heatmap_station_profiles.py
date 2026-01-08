@@ -244,7 +244,7 @@ def run_heatmap_analysis(
     Args:
         count_type: Type of counts to analyze ("checkins" or "checkouts")
         day_type: Day type to analyze (WD, SA, SU, HO)
-        output_dir: Directory to save plots (default: src/workflow/heatmap_results)
+        output_dir: Directory to save plots (default: src/workflow/results/heatmap_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
         cmap: Colormap for heatmap (default: "YlOrRd")
@@ -322,7 +322,7 @@ def run_heatmap_analysis(
 
     # Set output directory
     if output_dir is None:
-        output_dir = Path("src/workflow/heatmap_results")
+        output_dir = Path("src/workflow/results/heatmap_results")
     output_dir = Path(output_dir)
 
     # Plot heatmap
@@ -362,8 +362,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="src/workflow/heatmap_results",
-        help="Directory to save plots (default: src/workflow/heatmap_results)",
+        default="src/workflow/results/heatmap_results",
+        help="Directory to save plots (default: src/workflow/results/heatmap_results)",
     )
     parser.add_argument(
         "--params",

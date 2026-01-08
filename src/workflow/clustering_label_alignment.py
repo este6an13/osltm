@@ -510,7 +510,7 @@ def run_clustering_analysis(
 
     # Set output directory
     if output_dir is None:
-        output_dir = Path("src/workflow/clustering_results")
+        output_dir = Path("src/workflow/results/clustering_results")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -663,7 +663,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-dir",
         type=str,
-        help="Output directory for results (default: src/workflow/clustering_results)",
+        help="Output directory for results (default: src/workflow/results/clustering_results)",
     )
     parser.add_argument(
         "--no-normalize",
