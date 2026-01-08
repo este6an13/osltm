@@ -9,7 +9,11 @@
     "step2": {
         "type": "both",
         "ins_path": "data/check_ins/daily",
-        "outs_path": "data/check_outs/daily"
+        "outs_path": "data/check_outs/daily",
+        "force_redownload": false,
+        "drop_columns": true,
+        "process_checkins": true,
+        "process_checkouts": true
     },
     "step3": {
         "n_files": 10,

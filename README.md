@@ -52,5 +52,20 @@ uv run python -m src.workflow.within_between_distances --stations 03000
 
 uv run python -m src.workflow.mean_envelope_plots --stations 03000
 
-uv run python -m src.workflow.clustering_label_alignment --stations 03000 
+uv run python -m src.workflow.clustering_label_alignment --stations 03000
+```
+
+### Drop Unused Columns from CSV Files
+
+This reduces local storage by ~85% for daily check-in data and ~60% for daily check-out data
+
+```sh
+  # Run with params.json
+  uv run python -m src.workflow.utils.drop_unused_columns --params src/workflow/params.json
+
+  # Process specific files
+  uv run python -m src.workflow.utils.drop_unused_columns --params src/workflow/params.json --files 20240625,20240628
+
+  # Process date range
+  uv run python -m src.workflow.utils.drop_unused_columns --params src/workflow/params.json --date-start 20240625 --date-end 20240630
 ```

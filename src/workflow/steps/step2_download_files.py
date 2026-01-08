@@ -2,6 +2,7 @@
 Step 2: Download daily data files.
 
 This step downloads check-in/out CSV files for the dates sampled in step 1.
+Optionally drops unused columns from downloaded files to minimize disk space.
 """
 
 import os
@@ -11,6 +12,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
+
+from src.workflow.utils.drop_unused_columns import process_file_by_date
 
 
 def download_file(url: str, dest: Path) -> bool:
@@ -37,8 +40,19 @@ def unzip_file(zip_path: Path, extract_to: Path) -> Path | None:
     return None
 
 
-def handle_files(date_str: str, file_type: str, out_dir: Path) -> None:
-    """Download, unzip, and move files based on type and date."""
+def handle_files(
+    date_str: str,
+    file_type: str,
+    out_dir: Path,
+    force_redownload: bool = False,
+    drop_columns: bool = False,
+    ins_path: Path | None = None,
+    outs_path: Path | None = None,
+) -> None:
+    """
+    Download, unzip, and move files based on type and date.
+    Optionally drops unused columns after download.
+    """
     base_urls = {
         "ins": f"https://storage.googleapis.com/validaciones_tmsa/ValidacionTroncal/validacionTroncal{date_str}.zip",
         "outs": f"https://storage.googleapis.com/validaciones_tmsa/Salidas/salidas{date_str}.zip",
@@ -49,11 +63,14 @@ def handle_files(date_str: str, file_type: str, out_dir: Path) -> None:
 
     # Define expected CSV name (they match the date)
     expected_csv = out_dir / f"{date_str}.csv"
-    if expected_csv.exists():
+    if expected_csv.exists() and not force_redownload:
         print(
             f"⏭️  Skipping {file_type} for {date_str} — {expected_csv.name} already exists."
         )
         return
+    elif expected_csv.exists() and force_redownload:
+        print(f"🔄 Force redownload enabled — will overwrite {expected_csv.name}")
+        os.remove(expected_csv)
 
     url = base_urls[file_type]
     zip_path = tmp_dir / f"{file_type}_{date_str}.zip"
@@ -71,6 +88,11 @@ def handle_files(date_str: str, file_type: str, out_dir: Path) -> None:
         dest_path = out_dir / csv_path.name
         shutil.move(str(csv_path), dest_path)
         print(f"📁 Moved {csv_path.name} → {dest_path}")
+
+        # Drop unused columns if enabled
+        if drop_columns and ins_path and outs_path:
+            print(f"🗜️  Dropping unused columns from {dest_path.name}...")
+            process_file_by_date(date_str, file_type, ins_path, outs_path)
     else:
         print(f"⚠️  No CSV found in {zip_path}")
 
@@ -90,6 +112,10 @@ def run(params: dict[str, Any]) -> None:
             - type: "ins", "outs", or "both"
             - ins_path: Path for check-ins folder
             - outs_path: Path for check-outs folder
+            - force_redownload: Whether to force redownload existing files (default: false)
+            - drop_columns: Whether to drop unused columns after download (default: false)
+            - process_checkins: Whether to process check-ins when dropping columns (default: true)
+            - process_checkouts: Whether to process check-outs when dropping columns (default: true)
     """
     # Get dates from step 1 or step2 params
     sampled_dates = params.get("sampled_dates")
@@ -106,11 +132,15 @@ def run(params: dict[str, Any]) -> None:
     download_type = step_params.get("type", "both")
     ins_path = Path(step_params.get("ins_path", "data/check_ins/daily"))
     outs_path = Path(step_params.get("outs_path", "data/check_outs/daily"))
+    force_redownload = step_params.get("force_redownload", False)
+    drop_columns = step_params.get("drop_columns", False)
 
     print(f"📥 Downloading files for {len(sampled_dates)} dates")
     print(f"   Type: {download_type}")
     print(f"   Ins path: {ins_path}")
     print(f"   Outs path: {outs_path}")
+    print(f"   Force redownload: {force_redownload}")
+    print(f"   Drop columns: {drop_columns}")
 
     # Create output directories if they don't exist
     ins_path.mkdir(parents=True, exist_ok=True)
@@ -120,9 +150,25 @@ def run(params: dict[str, Any]) -> None:
     for date_str in sampled_dates:
         print(f"\n📅 Processing date: {date_str}")
         if download_type in ["ins", "both"]:
-            handle_files(date_str, "ins", ins_path)
+            handle_files(
+                date_str,
+                "ins",
+                ins_path,
+                force_redownload,
+                drop_columns,
+                ins_path,
+                outs_path,
+            )
         if download_type in ["outs", "both"]:
-            handle_files(date_str, "outs", outs_path)
+            handle_files(
+                date_str,
+                "outs",
+                outs_path,
+                force_redownload,
+                drop_columns,
+                ins_path,
+                outs_path,
+            )
 
     print("\n✅ All downloads completed!")
 
