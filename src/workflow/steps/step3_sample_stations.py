@@ -76,7 +76,7 @@ def run(params: dict[str, Any]) -> None:
         - params['step3']: Configuration dict with:
             - n_files: Number of files to sample (default: all available)
             - n_stations: Number of stations to sample
-            - reference_csv_path: Path to save the reference CSV (default: workflow/stations_reference.csv)
+            - reference_csv_path: Path to save the reference CSV (default: workflow/data/stations_reference.csv)
     """
     # Get dates from step 1
     sampled_dates = params.get("sampled_dates")
@@ -101,7 +101,7 @@ def run(params: dict[str, Any]) -> None:
 
     # Get reference CSV path
     reference_csv_path = Path(
-        step3_params.get("reference_csv_path", "src/workflow/stations_reference.csv")
+        step3_params.get("reference_csv_path", "src/workflow/data/stations_reference.csv")
     )
 
     print("🔍 Sampling stations from check-out files")

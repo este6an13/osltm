@@ -14,7 +14,7 @@
     "step3": {
         "n_files": 10,
         "n_stations": 20,
-        "reference_csv_path": "src/workflow/stations_reference.csv"
+        "reference_csv_path": "src/workflow/data/stations_reference.csv"
     },
     "step4": {
         "persistence_dir": "src/workflow/persistence",
