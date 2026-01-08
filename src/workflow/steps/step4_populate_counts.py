@@ -30,7 +30,7 @@ PROCESS_TYPE_OUTS = "daily_check_outs_counts_15min"
 def save_persisted_data(
     persistence_dir: Path, sampled_dates: list[str], sampled_stations: list[dict]
 ) -> None:
-    """Save sampled_dates and sampled_stations to CSV files for persistence."""
+    """Save sampled_dates and sampled_stations to CSV files for data."""
     persistence_dir.mkdir(parents=True, exist_ok=True)
 
     # Save dates
@@ -422,14 +422,12 @@ def run(params: dict[str, Any]) -> None:
         - params['sampled_stations']: List of station dicts with 'code' and 'name' (from step 3)
         - params['step2']: Paths to check-in/out directories
         - params['step4']: Configuration dict with:
-            - persistence_dir: Directory to save/load persisted data (default: src/workflow/persistence)
+            - persistence_dir: Directory to save/load persisted data (default: src/workflow/data)
             - process_checkins: Whether to process check-ins (default: true)
             - process_checkouts: Whether to process check-outs (default: true)
     """
     step4_params = params.get("step4", {})
-    persistence_dir = Path(
-        step4_params.get("persistence_dir", "src/workflow/persistence")
-    )
+    persistence_dir = Path(step4_params.get("persistence_dir", "src/workflow/data"))
     process_checkins_flag = step4_params.get("process_checkins", True)
     process_checkouts_flag = step4_params.get("process_checkouts", True)
     time_min = step4_params.get("time_min", 400)
@@ -441,18 +439,16 @@ def run(params: dict[str, Any]) -> None:
     # Get dates from params or persisted data
     sampled_dates = params.get("sampled_dates") or persisted_dates
     if not sampled_dates:
-        raise ValueError(
-            "No sampled_dates found in params or persistence. Run step 1 first."
-        )
+        raise ValueError("No sampled_dates found in params or data. Run step 1 first.")
 
     # Get stations from params or persisted data
     sampled_stations = params.get("sampled_stations") or persisted_stations
     if not sampled_stations:
         raise ValueError(
-            "No sampled_stations found in params or persistence. Run step 3 first."
+            "No sampled_stations found in params or data. Run step 3 first."
         )
 
-    # Save to persistence if not already persisted
+    # Save to data if not already persisted
     if not persisted_dates or not persisted_stations:
         save_persisted_data(persistence_dir, sampled_dates, sampled_stations)
 

@@ -118,9 +118,9 @@ def run(params: dict[str, Any]) -> None:
     sampled_dates_str = [d.strftime("%Y%m%d") for d in sampled]
     params["sampled_dates"] = sampled_dates_str
 
-    # Save to persistence CSV
+    # Save to data CSV
     persistence_dir = Path(
-        params.get("step4", {}).get("persistence_dir", "src/workflow/persistence")
+        params.get("step4", {}).get("persistence_dir", "src/workflow/data")
     )
     persistence_dir.mkdir(parents=True, exist_ok=True)
     dates_df = pd.DataFrame({"date": sampled_dates_str})

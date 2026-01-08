@@ -101,7 +101,9 @@ def run(params: dict[str, Any]) -> None:
 
     # Get reference CSV path
     reference_csv_path = Path(
-        step3_params.get("reference_csv_path", "src/workflow/data/stations_reference.csv")
+        step3_params.get(
+            "reference_csv_path", "src/workflow/data/stations_reference.csv"
+        )
     )
 
     print("🔍 Sampling stations from check-out files")
@@ -158,9 +160,9 @@ def run(params: dict[str, Any]) -> None:
     ]
     params["sampled_stations"] = sampled_stations_list
 
-    # Save to persistence CSV
+    # Save to data CSV
     persistence_dir = Path(
-        params.get("step4", {}).get("persistence_dir", "src/workflow/persistence")
+        params.get("step4", {}).get("persistence_dir", "src/workflow/data")
     )
     persistence_dir.mkdir(parents=True, exist_ok=True)
     stations_df = pd.DataFrame(sampled_stations_list)

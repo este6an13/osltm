@@ -17,7 +17,7 @@
         "reference_csv_path": "src/workflow/data/stations_reference.csv"
     },
     "step4": {
-        "persistence_dir": "src/workflow/persistence",
+        "persistence_dir": "src/workflow/data",
         "process_checkins": true,
         "process_checkouts": true,
         "time_min": 400,

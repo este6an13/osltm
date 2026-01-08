@@ -190,16 +190,16 @@ def load_data(
     """
     Load count data from database and return as pivoted DataFrames.
 
-    By default, loads data based on sampled dates and stations from persistence folder.
+    By default, loads data based on sampled dates and stations from data folder.
 
     Args:
         dates: Optional list of date strings in YYYYMMDD format.
-            If None, loads from persistence folder.
+            If None, loads from data folder.
         station_codes: Optional list of station codes to filter by.
-            If None, loads from persistence folder or includes all.
+            If None, loads from data folder or includes all.
         include_checkins: Whether to load check-in counts (default: True)
         include_checkouts: Whether to load check-out counts (default: True)
-        persistence_dir: Path to persistence directory (default: src/workflow/persistence)
+        persistence_dir: Path to data directory (default: src/workflow/data)
         session: Optional database session. If None, creates a new one.
         time_min: Minimum time in HHMM format (default: 400 for 04:00)
         time_max: Maximum time in HHMM format (default: 2300 for 23:00)
@@ -225,11 +225,11 @@ def load_data(
         >>> # Each row represents one date-station combination
         >>> # Columns t_400 through t_2300 contain the counts for each time window
     """
-    # Default persistence directory
+    # Default data directory
     if persistence_dir is None:
-        persistence_dir = Path("src/workflow/persistence")
+        persistence_dir = Path("src/workflow/data")
 
-    # Load dates and stations from persistence if not provided
+    # Load dates and stations from data if not provided
     if dates is None or station_codes is None:
         persisted_dates, persisted_stations = load_persisted_data(persistence_dir)
         if dates is None:
@@ -239,7 +239,7 @@ def load_data(
 
     if not dates:
         raise ValueError(
-            "No dates provided and none found in persistence. Run workflow steps 1-4 first."
+            "No dates provided and none found in data. Run workflow steps 1-4 first."
         )
 
     # Convert station_codes to set if provided
@@ -291,7 +291,7 @@ def load_data(
 
 if __name__ == "__main__":
     # Example usage
-    print("Loading data from persistence...")
+    print("Loading data from data...")
     data = load_data()
 
     if "checkins" in data:

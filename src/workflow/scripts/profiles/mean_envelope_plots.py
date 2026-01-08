@@ -374,7 +374,7 @@ def run_mean_envelope_analysis(
         quantile_high: Upper quantile (default: 0.9 for 90%)
         output_dir: Directory to save plots (default: src/workflow/results/envelope_results)
         params_path: Path to params.json (default: src/workflow/params.json)
-        station_codes: Optional list of station codes to analyze. If None, uses all from persistence.
+        station_codes: Optional list of station codes to analyze. If None, uses all from data.
 
     Returns:
         Dictionary with results for each station
@@ -558,7 +558,7 @@ if __name__ == "__main__":
         "--stations",
         type=str,
         nargs="+",
-        help="Optional list of station codes to analyze (default: all from persistence)",
+        help="Optional list of station codes to analyze (default: all from data)",
     )
 
     args = parser.parse_args()
