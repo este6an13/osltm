@@ -341,7 +341,10 @@ def run_shape_clustering(
 
     # Load data
     print(f"📊 Loading {count_type} data...")
+    if station_codes:
+        print(f"   Filtering to {len(station_codes)} specified stations")
     data = load_data(
+        station_codes=station_codes,
         include_checkins=(count_type == "checkins"),
         include_checkouts=(count_type == "checkouts"),
         time_min=time_min,
@@ -357,12 +360,19 @@ def run_shape_clustering(
     if df.empty:
         raise ValueError(f"Empty DataFrame for {count_type}")
 
-    # Filter by station codes if provided
+    # Filter by station codes if provided (validate which ones have data)
     if station_codes is not None:
-        df = df[df["station_code"].isin(station_codes)].copy()
-        if df.empty:
-            raise ValueError(f"No data found for specified stations: {station_codes}")
-        print(f"🔍 Filtered to {len(station_codes)} specified stations")
+        available_stations = set(df["station_code"].unique())
+        requested_stations = set(station_codes)
+        missing = requested_stations - available_stations
+        if missing:
+            print(
+                f"⚠️  Warning: Some specified stations have no data: {sorted(missing)}"
+            )
+        station_codes = [sc for sc in station_codes if sc in available_stations]
+        if not station_codes:
+            raise ValueError("No data found for any of the specified stations")
+        print(f"🔍 Filtered to {len(station_codes)} stations with data")
     else:
         print("🔍 Using all stations from data")
 

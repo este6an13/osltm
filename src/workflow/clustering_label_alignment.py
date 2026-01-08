@@ -474,7 +474,10 @@ def run_clustering_analysis(
 
     # Load data
     print(f"📊 Loading {count_type} data...")
+    if station_codes:
+        print(f"   Filtering to {len(station_codes)} specified stations")
     data = load_data(
+        station_codes=station_codes,
         include_checkins=(count_type == "in"),
         include_checkouts=(count_type == "out"),
         time_min=time_min,
@@ -489,9 +492,19 @@ def run_clustering_analysis(
     if df.empty:
         raise ValueError(f"Empty DataFrame for {count_type}")
 
-    # Get unique stations
+    # Get unique stations (if not already specified)
     if station_codes is None:
         station_codes = df["station_code"].unique().tolist()
+    else:
+        # Filter to only stations that actually have data
+        available_stations = set(df["station_code"].unique())
+        requested_stations = set(station_codes)
+        missing = requested_stations - available_stations
+        if missing:
+            print(
+                f"⚠️  Warning: Some specified stations have no data: {sorted(missing)}"
+            )
+        station_codes = [sc for sc in station_codes if sc in available_stations]
 
     print(f"🔍 Analyzing {len(station_codes)} stations...")
 
