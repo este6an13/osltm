@@ -7,12 +7,7 @@ osltm_v2.db-journal
 osltm_v2.db
 temp_downloads/
 *stations_reference.csv
-*persistence/
-*fpca_results/
-*distance_results/
-*envelope_results/
-*clustering_results/
-*heatmap_results/
+*results/
 
 # Python-generated files
 __pycache__/
