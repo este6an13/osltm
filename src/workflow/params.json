@@ -26,7 +26,8 @@
         "process_checkouts": true,
         "time_min": 400,
         "time_max": 2300,
-        "time_step": 15
+        "time_step": 15,
+        "delta_minutes": 1
     },
     "sampled_dates": null,
     "sampled_stations": null

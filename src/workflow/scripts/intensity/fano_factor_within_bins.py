@@ -1,11 +1,11 @@
 """
 Fano Factor Within Bins Analysis
 
-This script computes Fano factors within 15-minute bins using sub-minute counts.
+This script computes Fano factors within time bins using sub-bins of configurable size.
 
-For each file, per station, within a 15-min bin:
-- Subdivide into 1-min bins
-- Compute: Var[N(δ=1min)] / E[N(δ=1min)]
+For each file, per station, within a time bin:
+- Subdivide into sub-bins of size delta_minutes
+- Compute: Var[N(δ)] / E[N(δ)] where δ = delta_minutes
 
 Plots average within-bin Fano factor per station and day type as a curve.
 """
@@ -110,58 +110,131 @@ def load_csv_file(
         count_type: Type of counts ("checkins" or "checkouts")
 
     Returns:
-        DataFrame with columns: datetime, station_code, station_name, hour, minute
+        DataFrame with columns: datetime, station_code, station_name, hour, minute, second, hour_float
+        For checkouts, counts are expanded into individual events.
     """
-    # Determine column name based on count type
     if count_type == "checkins":
+        # Checkins: each row is an event, datetime is in Fecha_Transaccion
         station_col = "Estacion_Parada"
         usecols = ["Fecha_Transaccion", station_col]
-    else:  # checkouts
-        station_col = "Estacion"
-        usecols = ["Fecha_Transaccion", station_col]
 
-    # Read CSV with parse_dates for faster datetime parsing
-    try:
-        df = pd.read_csv(
-            csv_path,
-            usecols=usecols,
-            parse_dates=["Fecha_Transaccion"],
-        )
-    except KeyError:
-        # Try alternative column name if first attempt fails
-        if count_type == "checkins":
+        try:
+            df = pd.read_csv(
+                csv_path,
+                usecols=usecols,
+                parse_dates=["Fecha_Transaccion"],
+            )
+        except KeyError:
+            # Try alternative column name if first attempt fails
             station_col = "Estacion"
             usecols = ["Fecha_Transaccion", station_col]
-        else:
+            df = pd.read_csv(
+                csv_path,
+                usecols=usecols,
+                parse_dates=["Fecha_Transaccion"],
+            )
+
+        # Rename datetime column
+        df = df.rename(columns={"Fecha_Transaccion": "datetime"})
+
+    else:  # checkouts
+        # Checkouts: each row is a timestamp with count in Salidas_S
+        # Time is split into Fecha_Transaccion (date) and Tiempo (time)
+        station_col = "Estacion"
+        usecols = ["Fecha_Transaccion", "Tiempo", station_col, "Salidas_S"]
+
+        try:
+            df = pd.read_csv(
+                csv_path,
+                usecols=usecols,
+            )
+        except KeyError:
+            # Try alternative column name if first attempt fails
             station_col = "Estacion_Parada"
-            usecols = ["Fecha_Transaccion", station_col]
-        df = pd.read_csv(
-            csv_path,
-            usecols=usecols,
-            parse_dates=["Fecha_Transaccion"],
+            usecols = ["Fecha_Transaccion", "Tiempo", station_col, "Salidas_S"]
+            df = pd.read_csv(
+                csv_path,
+                usecols=usecols,
+            )
+
+        # Combine Fecha_Transaccion and Tiempo into datetime
+        df["datetime"] = pd.to_datetime(
+            df["Fecha_Transaccion"].astype(str) + " " + df["Tiempo"].astype(str)
         )
 
-    # Filter by stations early using string pattern matching (much faster than extracting all)
-    if station_codes:
+        # Filter by stations early using string pattern matching
+        if station_codes:
+            pattern = "|".join([re.escape(f"({code})") for code in station_codes])
+            df = df[
+                df[station_col]
+                .astype(str)
+                .str.contains(pattern, case=False, regex=True)
+            ].copy()
+
+        # Extract station code and name
+        df[["station_code", "station_name"]] = df[station_col].apply(
+            lambda x: pd.Series(extract_station_info(x))
+        )
+
+        # Filter by exact station code match
+        if station_codes:
+            df = df[df["station_code"].isin(station_codes)].copy()
+
+        # Group by datetime and station, sum counts (in case of duplicates)
+        df = df.groupby(["datetime", "station_code", "station_name"], as_index=False)[
+            "Salidas_S"
+        ].sum()
+
+        # Expand counts into individual events
+        # Create a list of DataFrames, one for each count
+        expanded_rows = []
+        for _, row in df.iterrows():
+            count = int(row["Salidas_S"])
+            if count > 0:
+                # Create count number of rows with the same datetime
+                for _ in range(count):
+                    expanded_rows.append(
+                        {
+                            "datetime": row["datetime"],
+                            "station_code": row["station_code"],
+                            "station_name": row["station_name"],
+                        }
+                    )
+
+        if expanded_rows:
+            df = pd.DataFrame(expanded_rows)
+        else:
+            # Return empty dataframe with correct columns
+            df = pd.DataFrame(columns=["datetime", "station_code", "station_name"])
+
+    # Filter by stations early using string pattern matching (for checkins)
+    if count_type == "checkins" and station_codes:
         # Create pattern to match any of our station codes
-        # Station code is in format "(05000) Station Name", so we look for codes in parentheses
-        # Escape parentheses to avoid regex group interpretation
         pattern = "|".join([re.escape(f"({code})") for code in station_codes])
+        # Use the station column that was determined in the checkins block
+        checkins_station_col = (
+            "Estacion_Parada" if "Estacion_Parada" in df.columns else "Estacion"
+        )
         df = df[
-            df[station_col].astype(str).str.contains(pattern, case=False, regex=True)
+            df[checkins_station_col]
+            .astype(str)
+            .str.contains(pattern, case=False, regex=True)
         ].copy()
 
-    # Extract station code and name (only for filtered rows if station_codes provided)
-    df[["station_code", "station_name"]] = df[station_col].apply(
-        lambda x: pd.Series(extract_station_info(x))
-    )
+    # Extract station code and name (for checkins, or if not already done)
+    if count_type == "checkins":
+        checkins_station_col = (
+            "Estacion_Parada" if "Estacion_Parada" in df.columns else "Estacion"
+        )
+        df[["station_code", "station_name"]] = df[checkins_station_col].apply(
+            lambda x: pd.Series(extract_station_info(x))
+        )
 
-    # Filter by exact station code match (in case pattern matched multiple)
-    if station_codes:
-        df = df[df["station_code"].isin(station_codes)].copy()
+        # Filter by exact station code match (in case pattern matched multiple)
+        if station_codes:
+            df = df[df["station_code"].isin(station_codes)].copy()
 
-    # Rename datetime column and extract time components
-    df = df.rename(columns={"Fecha_Transaccion": "datetime"})
+    # Extract time components
     df["hour"] = df["datetime"].dt.hour
     df["minute"] = df["datetime"].dt.minute
     df["second"] = df["datetime"].dt.second
@@ -181,18 +254,22 @@ def load_csv_file(
 
 
 def compute_fano_within_bin(
-    events: np.ndarray, bin_start_minutes: float, bin_duration_minutes: int = 15
+    events: np.ndarray,
+    bin_start_minutes: float,
+    bin_duration_minutes: int = 15,
+    delta_minutes: int = 1,
 ) -> float:
     """
-    Compute Fano factor within a bin by subdividing into 1-minute bins.
+    Compute Fano factor within a bin by subdividing into sub-bins of size delta_minutes.
 
     Args:
         events: Array of event times in minutes from start of day (can be float)
-        bin_start_minutes: Start of the 15-min bin in minutes from start of day
+        bin_start_minutes: Start of the bin in minutes from start of day
         bin_duration_minutes: Duration of the bin in minutes (default: 15)
+        delta_minutes: Size of sub-bins in minutes (default: 1)
 
     Returns:
-        Fano factor: Var[N(1min)] / E[N(1min)]
+        Fano factor: Var[N(δ)] / E[N(δ)] where δ = delta_minutes
     """
     # Filter events to this bin
     bin_end_minutes = bin_start_minutes + bin_duration_minutes
@@ -201,19 +278,19 @@ def compute_fano_within_bin(
     if len(events_in_bin) == 0:
         return np.nan
 
-    # Subdivide into 1-minute bins
-    n_sub_bins = bin_duration_minutes
+    # Subdivide into sub-bins of size delta_minutes
+    n_sub_bins = int(bin_duration_minutes / delta_minutes)
     counts_per_sub_bin = np.zeros(n_sub_bins, dtype=int)
 
     for event_minutes in events_in_bin:
         # Relative position within the bin (0 to bin_duration_minutes)
         relative_minutes = event_minutes - bin_start_minutes
-        # Which 1-min sub-bin does this fall into?
-        sub_bin_idx = int(np.floor(relative_minutes))
+        # Which sub-bin does this fall into?
+        sub_bin_idx = int(np.floor(relative_minutes / delta_minutes))
         if 0 <= sub_bin_idx < n_sub_bins:
             counts_per_sub_bin[sub_bin_idx] += 1
 
-    # Compute mean and variance of counts across 1-min bins
+    # Compute mean and variance of counts across sub-bins
     mean = np.mean(counts_per_sub_bin)
     variance = np.var(counts_per_sub_bin, ddof=1)  # Sample variance
 
@@ -229,15 +306,17 @@ def compute_fano_factors_within_bins(
     time_min: int = 400,
     time_max: int = 2300,
     time_step: int = 15,
+    delta_minutes: int = 1,
 ) -> dict[str, dict[str, dict[str, list[float]]]]:
     """
-    Compute Fano factors within bins for each station, day type, and 15-min bin.
+    Compute Fano factors within bins for each station, day type, and time bin.
 
     Args:
         df: DataFrame with columns: datetime, station_code, hour, minute, hour_float
         time_min: Minimum time in HHMM format (default: 400 for 04:00)
         time_max: Maximum time in HHMM format (default: 2300 for 23:00)
-        time_step: Time step in minutes (default: 15)
+        time_step: Time step in minutes for bin size (default: 15)
+        delta_minutes: Size of sub-bins in minutes for Fano factor computation (default: 1)
 
     Returns:
         Dictionary: {station_code: {day_type: {time_col: [fano_factors]}}}
@@ -289,9 +368,11 @@ def compute_fano_factors_within_bins(
         if len(events) == 0:
             continue
 
-        # Compute Fano factor for each 15-min bin
+        # Compute Fano factor for each bin
         for bin_start_minutes, time_col in zip(bin_starts, time_cols):
-            fano = compute_fano_within_bin(events, bin_start_minutes, time_step)
+            fano = compute_fano_within_bin(
+                events, bin_start_minutes, time_step, delta_minutes
+            )
             if not np.isnan(fano):
                 results[station_code][day_type][time_col].append(fano)
 
@@ -491,6 +572,7 @@ def run_fano_factor_within_bins_analysis(
     station_codes: Optional[list[str]] = None,
     data_dir: Optional[Path] = None,
     date_percentage: Optional[float] = None,
+    delta_minutes: Optional[int] = None,
 ) -> dict:
     """
     Run Fano factor within bins analysis.
@@ -503,6 +585,8 @@ def run_fano_factor_within_bins_analysis(
         data_dir: Directory containing CSV files (default: data/check_ins/daily or data/check_outs/daily)
         date_percentage: Optional percentage of dates to use per day type (0.0 to 1.0).
             If None, uses all dates. Uses seed from params.json for reproducibility.
+        delta_minutes: Size of sub-bins in minutes for Fano factor computation.
+            If None, uses value from params.json or defaults to 1 minute.
 
     Returns:
         Dictionary with Fano factors per station, day type, and time bin
@@ -518,6 +602,8 @@ def run_fano_factor_within_bins_analysis(
     time_min = step4_params.get("time_min", 400)
     time_max = step4_params.get("time_max", 2300)
     time_step = step4_params.get("time_step", 15)
+    if delta_minutes is None:
+        delta_minutes = step4_params.get("delta_minutes", 1)
 
     # Set data directory
     if data_dir is None:
@@ -623,7 +709,11 @@ def run_fano_factor_within_bins_analysis(
 
     # Compute Fano factors within bins
     fano_factors = compute_fano_factors_within_bins(
-        combined_df, time_min=time_min, time_max=time_max, time_step=time_step
+        combined_df,
+        time_min=time_min,
+        time_max=time_max,
+        time_step=time_step,
+        delta_minutes=delta_minutes,
     )
 
     print(f"✅ Computed Fano factors for {len(fano_factors)} stations")
@@ -699,6 +789,12 @@ if __name__ == "__main__":
         default=None,
         help="Percentage of dates to use per day type (0.0 to 1.0). If None, uses all dates. (default: None)",
     )
+    parser.add_argument(
+        "--delta_minutes",
+        type=int,
+        default=None,
+        help="Size of sub-bins in minutes for Fano factor computation. If None, uses value from params.json or defaults to 1 minute. (default: None)",
+    )
 
     args = parser.parse_args()
 
@@ -709,6 +805,7 @@ if __name__ == "__main__":
         station_codes=args.stations,
         data_dir=Path(args.data_dir) if args.data_dir else None,
         date_percentage=args.date_percentage,
+        delta_minutes=args.delta_minutes,
     )
 
     print(f"\n📊 Generated Fano factor within bins analysis for {args.count_type}")
