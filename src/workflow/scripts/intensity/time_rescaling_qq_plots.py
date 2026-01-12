@@ -10,6 +10,10 @@ This script:
 The time rescaling theorem states that if we have the correct intensity,
 the rescaled inter-event times should be exponentially distributed,
 which transforms to uniform(0,1) via u_i = 1 - exp(-τ_i).
+
+NOTE: This script only supports checkins, not checkouts. Checkouts data has
+a minimum granularity of 15 minutes and does not contain raw timestamps per
+event, which are required for the time rescaling theorem analysis.
 """
 
 import json
@@ -18,7 +22,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -268,10 +272,9 @@ def evaluate_compensator(
 def load_csv_file(
     csv_path: Path,
     station_codes: Optional[list[str]] = None,
-    count_type: str = "checkins",
 ) -> pd.DataFrame:
     """
-    Load a CSV file and extract transaction times.
+    Load a CSV file and extract transaction times for checkins.
 
     Optimized version that:
     - Uses parse_dates for faster datetime parsing
@@ -281,18 +284,13 @@ def load_csv_file(
     Args:
         csv_path: Path to CSV file
         station_codes: Optional list of station codes to filter by
-        count_type: Type of counts ("checkins" or "checkouts")
 
     Returns:
         DataFrame with columns: datetime, station_code, station_name, hour
     """
-    # Determine column name based on count type
-    if count_type == "checkins":
-        station_col = "Estacion_Parada"
-        usecols = ["Fecha_Transaccion", station_col]
-    else:  # checkouts
-        station_col = "Estacion"
-        usecols = ["Fecha_Transaccion", station_col]
+    # Checkins use Estacion_Parada column
+    station_col = "Estacion_Parada"
+    usecols = ["Fecha_Transaccion", station_col]
 
     # Read CSV with parse_dates for faster datetime parsing
     try:
@@ -303,12 +301,8 @@ def load_csv_file(
         )
     except KeyError:
         # Try alternative column name if first attempt fails
-        if count_type == "checkins":
-            station_col = "Estacion"
-            usecols = ["Fecha_Transaccion", station_col]
-        else:
-            station_col = "Estacion_Parada"
-            usecols = ["Fecha_Transaccion", station_col]
+        station_col = "Estacion"
+        usecols = ["Fecha_Transaccion", station_col]
         df = pd.read_csv(
             csv_path,
             usecols=usecols,
@@ -382,7 +376,6 @@ def plot_qq_plot(
     station_name: str,
     day_type: str,
     output_dir: Optional[Path] = None,
-    count_type: str = "checkins",
 ) -> None:
     """
     Plot QQ-plot of uniform values against theoretical uniform(0,1).
@@ -393,7 +386,6 @@ def plot_qq_plot(
         station_name: Station name
         day_type: Day type (WD, SA, SU, HO)
         output_dir: Optional directory to save plot
-        count_type: Type of counts ("checkins" or "checkouts")
     """
     if len(uniform_values) == 0:
         print(f"⚠️  No data to plot for {station_code}/{day_type}")
@@ -427,7 +419,7 @@ def plot_qq_plot(
     ax.set_ylabel("Sample Quantiles", fontsize=12)
     ax.set_title(
         f"QQ-Plot: {station_code} - {station_name}\n"
-        f"{DATE_TYPE_LABELS.get(day_type, day_type)} ({count_type.capitalize()})\n"
+        f"{DATE_TYPE_LABELS.get(day_type, day_type)} (Checkins)\n"
         f"n={len(uniform_values)}",
         fontsize=12,
         fontweight="bold",
@@ -440,7 +432,7 @@ def plot_qq_plot(
 
     if output_dir:
         output_dir.mkdir(parents=True, exist_ok=True)
-        filename = output_dir / f"qq_plot_{station_code}_{day_type}_{count_type}.png"
+        filename = output_dir / f"qq_plot_{station_code}_{day_type}_checkins.png"
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved QQ-plot to {filename}")
 
@@ -448,7 +440,6 @@ def plot_qq_plot(
 
 
 def run_time_rescaling_analysis(
-    count_type: Literal["checkins", "checkouts"] = "checkins",
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
@@ -457,14 +448,17 @@ def run_time_rescaling_analysis(
     date_percentage: Optional[float] = None,
 ) -> dict:
     """
-    Run time rescaling theorem analysis.
+    Run time rescaling theorem analysis for checkins.
+
+    NOTE: This function only supports checkins. Checkouts are not supported because
+    checkout data has a minimum granularity of 15 minutes and does not contain
+    raw timestamps per event, which are required for the time rescaling theorem.
 
     Args:
-        count_type: Type of counts to analyze ("checkins" or "checkouts")
         output_dir: Directory to save plots (default: src/workflow/results/time_rescaling)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all from data.
-        data_dir: Directory containing CSV files (default: data/check_ins/daily or data/check_outs/daily)
+        data_dir: Directory containing CSV files (default: data/check_ins/daily)
         time_window_minutes: Length of time window in minutes (default: 15)
         date_percentage: Optional percentage of dates to use per day type (0.0 to 1.0).
             If None, uses all dates. Uses seed from params.json for reproducibility.
@@ -486,10 +480,7 @@ def run_time_rescaling_analysis(
 
     # Set data directory
     if data_dir is None:
-        if count_type == "checkins":
-            data_dir = Path("data/check_ins/daily")
-        else:
-            data_dir = Path("data/check_outs/daily")
+        data_dir = Path("data/check_ins/daily")
     else:
         data_dir = Path(data_dir)
 
@@ -538,23 +529,23 @@ def run_time_rescaling_analysis(
     elif station_codes is None:
         raise ValueError("No station codes provided and none found in data.")
 
-    print(f"📊 Loading {count_type} data for intensity estimation...")
+    print("📊 Loading checkins data for intensity estimation...")
     data = load_data(
         station_codes=station_codes,
-        include_checkins=(count_type == "checkins"),
-        include_checkouts=(count_type == "checkouts"),
+        include_checkins=True,
+        include_checkouts=False,
         time_min=time_min,
         time_max=time_max,
         time_step=time_step,
     )
 
-    if count_type not in data:
-        raise ValueError(f"No {count_type} data available")
+    if "checkins" not in data:
+        raise ValueError("No checkins data available")
 
-    df = data[count_type]
+    df = data["checkins"]
 
     if df.empty:
-        raise ValueError(f"Empty DataFrame for {count_type}")
+        raise ValueError("Empty DataFrame for checkins")
 
     print("🔍 Computing mean profiles per station and day type...")
     mean_profiles = compute_mean_profiles_per_station_daytype(df)
@@ -610,9 +601,7 @@ def run_time_rescaling_analysis(
 
         # Load CSV file with station filtering (optimized - filters during load)
         try:
-            csv_df = load_csv_file(
-                csv_path, station_codes=station_codes, count_type=count_type
-            )
+            csv_df = load_csv_file(csv_path, station_codes=station_codes)
         except Exception as e:
             print(f"⚠️  Error loading {csv_filename}: {e}, skipping...")
             continue
@@ -691,7 +680,6 @@ def run_time_rescaling_analysis(
                 station_name,
                 day_type,
                 output_dir=output_dir,
-                count_type=count_type,
             )
 
             results[station_code][day_type] = {
@@ -707,13 +695,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Apply time rescaling theorem and generate QQ-plots"
-    )
-    parser.add_argument(
-        "--count_type",
-        choices=["checkins", "checkouts"],
-        default="checkins",
-        help="Type of counts to analyze (default: checkins)",
+        description="Apply time rescaling theorem and generate QQ-plots for checkins. "
+        "NOTE: Checkouts are not supported due to 15-minute granularity and lack of raw timestamps."
     )
     parser.add_argument(
         "--output_dir",
@@ -736,7 +719,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_dir",
         type=str,
-        help="Directory containing CSV files (default: data/check_ins/daily or data/check_outs/daily)",
+        help="Directory containing CSV files (default: data/check_ins/daily)",
     )
     parser.add_argument(
         "--time_window_minutes",
@@ -754,7 +737,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     results = run_time_rescaling_analysis(
-        count_type=args.count_type,
         output_dir=Path(args.output_dir) if args.output_dir else None,
         params_path=Path(args.params),
         station_codes=args.stations,
