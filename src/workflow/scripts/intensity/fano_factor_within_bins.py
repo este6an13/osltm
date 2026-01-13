@@ -620,6 +620,7 @@ def run_fano_factor_within_bins_analysis(
     station_codes: Optional[list[str]] = None,
     data_dir: Optional[Path] = None,
     date_percentage: Optional[float] = None,
+    time_step: Optional[int] = None,
     delta_minutes: Optional[int] = None,
     envelope_type: Literal["std", "quantile"] = "quantile",
     quantile_low: float = 0.25,
@@ -637,6 +638,8 @@ def run_fano_factor_within_bins_analysis(
             Not used for checkouts, which are loaded from database.
         date_percentage: Optional percentage of dates to use per day type (0.0 to 1.0).
             If None, uses all dates. Uses seed from params.json for reproducibility.
+        time_step: Size of outer bins in minutes for Fano factor computation.
+            If None, uses value from params.json or defaults to 15 minutes.
         delta_minutes: Size of sub-bins in minutes for Fano factor computation.
             If None, uses value from params.json or defaults to 1 minute.
         envelope_type: "std" for ±1 std band, "quantile" for quantile envelope (default: quantile)
@@ -660,7 +663,8 @@ def run_fano_factor_within_bins_analysis(
     step4_params = params.get("step4", {})
     time_min = step4_params.get("time_min", 400)
     time_max = step4_params.get("time_max", 2300)
-    time_step = step4_params.get("time_step", 15)
+    if time_step is None:
+        time_step = step4_params.get("time_step", 15)
     if delta_minutes is None:
         delta_minutes = step4_params.get("delta_minutes", 1)
 
@@ -888,6 +892,12 @@ if __name__ == "__main__":
         help="Percentage of dates to use per day type (0.0 to 1.0). If None, uses all dates. (default: None)",
     )
     parser.add_argument(
+        "--time_step",
+        type=int,
+        default=None,
+        help="Size of outer bins in minutes for Fano factor computation. If None, uses value from params.json or defaults to 15 minutes. (default: None)",
+    )
+    parser.add_argument(
         "--delta_minutes",
         type=int,
         default=None,
@@ -921,6 +931,7 @@ if __name__ == "__main__":
         station_codes=args.stations,
         data_dir=Path(args.data_dir) if args.data_dir else None,
         date_percentage=args.date_percentage,
+        time_step=args.time_step,
         delta_minutes=args.delta_minutes,
         envelope_type=args.envelope_type,
         quantile_low=args.quantile_low,
