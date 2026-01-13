@@ -7,7 +7,10 @@ For each file, per station, within a time bin:
 - Subdivide into sub-bins of size delta_minutes
 - Compute: Var[N(δ)] / E[N(δ)] where δ = delta_minutes
 
-Plots average within-bin Fano factor per station and day type as a curve.
+Plots average within-bin Fano factor per station and day type as a curve with:
+- Median Fano factor across stations vs time bins
+- Envelope showing either ±1 std band or quantile range (configurable)
+- Horizontal reference line at 1
 """
 
 import json
@@ -336,19 +339,25 @@ def compute_fano_factors_within_bins(
     return dict(results)
 
 
-def compute_average_fano_factors(
+def compute_mean_and_envelope_per_station(
     fano_factors: dict[str, dict[str, dict[str, list[float]]]],
     time_cols: list[str],
-) -> dict[str, dict[str, dict[str, float]]]:
+    envelope_type: Literal["std", "quantile"] = "quantile",
+    quantile_low: float = 0.25,
+    quantile_high: float = 0.75,
+) -> dict[str, dict[str, dict[str, dict[str, float]]]]:
     """
-    Compute average Fano factor across dates for each station, day type, and time bin.
+    Compute mean and envelope (std or quantile) across dates for each station, day type, and time bin.
 
     Args:
         fano_factors: Dictionary from compute_fano_factors_within_bins
         time_cols: List of time column names (sorted)
+        envelope_type: "std" for ±1 std band, "quantile" for quantile envelope
+        quantile_low: Lower quantile (default: 0.25 for 25th percentile)
+        quantile_high: Upper quantile (default: 0.75 for 75th percentile)
 
     Returns:
-        Dictionary: {station_code: {day_type: {time_col: avg_fano}}}
+        Dictionary: {station_code: {day_type: {time_col: {"mean": float, "lower": float, "upper": float}}}}
     """
     results = {}
 
@@ -359,85 +368,134 @@ def compute_average_fano_factors(
             for time_col in time_cols:
                 if time_col in time_factors:
                     fano_list = time_factors[time_col]
+                    # Filter out NaN values
+                    fano_list = [f for f in fano_list if not np.isnan(f)]
+
                     if len(fano_list) > 0:
-                        results[station_code][day_type][time_col] = np.mean(fano_list)
+                        mean_val = np.mean(fano_list)
+
+                        if envelope_type == "std":
+                            std_val = np.std(fano_list, ddof=1)  # Sample std
+                            lower_val = mean_val - std_val
+                            upper_val = mean_val + std_val
+                        else:  # quantile
+                            lower_val = np.percentile(fano_list, quantile_low * 100)
+                            upper_val = np.percentile(fano_list, quantile_high * 100)
+
+                        results[station_code][day_type][time_col] = {
+                            "mean": mean_val,
+                            "lower": lower_val,
+                            "upper": upper_val,
+                        }
                     else:
-                        results[station_code][day_type][time_col] = np.nan
+                        results[station_code][day_type][time_col] = {
+                            "mean": np.nan,
+                            "lower": np.nan,
+                            "upper": np.nan,
+                        }
                 else:
-                    results[station_code][day_type][time_col] = np.nan
+                    results[station_code][day_type][time_col] = {
+                        "mean": np.nan,
+                        "lower": np.nan,
+                        "upper": np.nan,
+                    }
 
     return results
 
 
-def compute_median_and_iqr_fano_factors(
-    avg_fano_factors: dict[str, dict[str, dict[str, float]]],
+def compute_median_and_envelope_across_stations(
+    station_envelopes: dict[str, dict[str, dict[str, dict[str, float]]]],
     time_cols: list[str],
 ) -> dict[str, dict[str, np.ndarray]]:
     """
-    Compute median and interquartile range of average Fano factors across stations.
+    Aggregate mean and envelope across stations by taking median of means and aggregating envelopes.
 
     Args:
-        avg_fano_factors: Dictionary from compute_average_fano_factors
+        station_envelopes: Dictionary from compute_mean_and_envelope_per_station
+            Format: {station_code: {day_type: {time_col: {"mean": float, "lower": float, "upper": float}}}}
         time_cols: List of time column names (sorted)
 
     Returns:
-        Dictionary: {day_type: {"median": array, "q25": array, "q75": array}}
+        Dictionary: {day_type: {"median": array, "lower": array, "upper": array}}
+        where median is the median of means across stations, and lower/upper are aggregated envelopes
     """
     results = {}
 
     for day_type in DATE_TYPE_ORDER:
-        # Collect average Fano factors for each time bin across all stations
-        fano_by_bin = {time_col: [] for time_col in time_cols}
+        # Collect means and envelopes for each time bin across all stations
+        means_by_bin = {time_col: [] for time_col in time_cols}
+        lowers_by_bin = {time_col: [] for time_col in time_cols}
+        uppers_by_bin = {time_col: [] for time_col in time_cols}
 
-        for station_code, daytype_factors in avg_fano_factors.items():
+        for station_code, daytype_factors in station_envelopes.items():
             if day_type not in daytype_factors:
                 continue
 
             for time_col in time_cols:
                 if time_col in daytype_factors[day_type]:
-                    fano = daytype_factors[day_type][time_col]
-                    if not np.isnan(fano):
-                        fano_by_bin[time_col].append(fano)
+                    data = daytype_factors[day_type][time_col]
+                    mean_val = data["mean"]
+                    lower_val = data["lower"]
+                    upper_val = data["upper"]
 
-        # Compute median and quartiles for each time bin
+                    if not (
+                        np.isnan(mean_val) or np.isnan(lower_val) or np.isnan(upper_val)
+                    ):
+                        means_by_bin[time_col].append(mean_val)
+                        lowers_by_bin[time_col].append(lower_val)
+                        uppers_by_bin[time_col].append(upper_val)
+
+        # Compute median of means and aggregate envelopes for each time bin
         median_values = []
-        q25_values = []
-        q75_values = []
+        lower_values = []
+        upper_values = []
 
         for time_col in time_cols:
-            fano_list = fano_by_bin[time_col]
-            if len(fano_list) > 0:
-                median_values.append(np.median(fano_list))
-                q25_values.append(np.percentile(fano_list, 25))
-                q75_values.append(np.percentile(fano_list, 75))
+            means_list = means_by_bin[time_col]
+            lowers_list = lowers_by_bin[time_col]
+            uppers_list = uppers_by_bin[time_col]
+
+            if len(means_list) > 0:
+                # Median of means across stations
+                median_values.append(np.median(means_list))
+                # Aggregate envelopes: take median of lower bounds and median of upper bounds
+                # This gives us a representative envelope across stations
+                lower_values.append(np.median(lowers_list))
+                upper_values.append(np.median(uppers_list))
             else:
                 median_values.append(np.nan)
-                q25_values.append(np.nan)
-                q75_values.append(np.nan)
+                lower_values.append(np.nan)
+                upper_values.append(np.nan)
 
         results[day_type] = {
             "median": np.array(median_values),
-            "q25": np.array(q25_values),
-            "q75": np.array(q75_values),
+            "lower": np.array(lower_values),
+            "upper": np.array(upper_values),
         }
 
     return results
 
 
 def plot_fano_factors(
-    median_iqr: dict[str, dict[str, np.ndarray]],
+    median_envelope: dict[str, dict[str, np.ndarray]],
     time_cols: list[str],
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    envelope_type: Literal["std", "quantile"] = "quantile",
+    quantile_low: float = 0.25,
+    quantile_high: float = 0.75,
 ) -> None:
     """
-    Plot Fano factors with median and interquartile envelope.
+    Plot Fano factors with median and envelope (std or quantile).
 
     Args:
-        median_iqr: Dictionary from compute_median_and_iqr_fano_factors
+        median_envelope: Dictionary from compute_median_and_envelope_fano_factors
         time_cols: List of time column names (sorted)
         output_dir: Optional directory to save plots
         count_type: Type of counts ("checkins" or "checkouts")
+        envelope_type: Type of envelope used ("std" or "quantile")
+        quantile_low: Lower quantile used (for label)
+        quantile_high: Upper quantile used (for label)
     """
     # Convert time columns to hours for x-axis
     time_hours = np.array([time_column_to_hours(col) for col in time_cols])
@@ -454,7 +512,7 @@ def plot_fano_factors(
     for idx, day_type in enumerate(DATE_TYPE_ORDER):
         ax = axes[idx]
 
-        if day_type not in median_iqr:
+        if day_type not in median_envelope:
             ax.text(
                 0.5,
                 0.5,
@@ -470,24 +528,57 @@ def plot_fano_factors(
             )
             continue
 
-        median = median_iqr[day_type]["median"]
-        q25 = median_iqr[day_type]["q25"]
-        q75 = median_iqr[day_type]["q75"]
+        median = median_envelope[day_type]["median"]
+        lower = median_envelope[day_type]["lower"]
+        upper = median_envelope[day_type]["upper"]
 
-        # Plot interquartile envelope
+        # Filter out NaN values for plotting
+        valid_mask = ~(np.isnan(median) | np.isnan(lower) | np.isnan(upper))
+        if not np.any(valid_mask):
+            ax.text(
+                0.5,
+                0.5,
+                f"No valid data for {DATE_TYPE_LABELS.get(day_type, day_type)}",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+            )
+            ax.set_title(
+                f"{DATE_TYPE_LABELS.get(day_type, day_type)} ({count_type.capitalize()})",
+                fontsize=14,
+                fontweight="bold",
+            )
+            continue
+
+        time_hours_valid = time_hours[valid_mask]
+        median_valid = median[valid_mask]
+        lower_valid = lower[valid_mask]
+        upper_valid = upper[valid_mask]
+
+        # Create envelope label
+        if envelope_type == "std":
+            envelope_label = "±1 std"
+        else:
+            envelope_label = (
+                f"{int(quantile_low * 100)}th-{int(quantile_high * 100)}th percentile"
+            )
+
+        # Plot envelope (filled area)
         ax.fill_between(
-            time_hours,
-            q25,
-            q75,
-            alpha=0.3,
+            time_hours_valid,
+            lower_valid,
+            upper_valid,
+            alpha=0.2,
             color="blue",
-            label="IQR (25th-75th percentile)",
+            label=f"Envelope ({envelope_label})",
+            edgecolor="blue",
+            linewidth=0.5,
         )
 
         # Plot median line
         ax.plot(
-            time_hours,
-            median,
+            time_hours_valid,
+            median_valid,
             "o-",
             color="blue",
             linewidth=2,
@@ -507,7 +598,7 @@ def plot_fano_factors(
             fontsize=14,
             fontweight="bold",
         )
-        ax.legend(loc="best")
+        ax.legend(loc="best", framealpha=0.9)
         ax.grid(True, alpha=0.3)
         ax.set_xlim(time_hours[0] - 0.5, time_hours[-1] + 0.5)
 
@@ -530,6 +621,9 @@ def run_fano_factor_within_bins_analysis(
     data_dir: Optional[Path] = None,
     date_percentage: Optional[float] = None,
     delta_minutes: Optional[int] = None,
+    envelope_type: Literal["std", "quantile"] = "quantile",
+    quantile_low: float = 0.25,
+    quantile_high: float = 0.75,
 ) -> dict:
     """
     Run Fano factor within bins analysis.
@@ -545,6 +639,9 @@ def run_fano_factor_within_bins_analysis(
             If None, uses all dates. Uses seed from params.json for reproducibility.
         delta_minutes: Size of sub-bins in minutes for Fano factor computation.
             If None, uses value from params.json or defaults to 1 minute.
+        envelope_type: "std" for ±1 std band, "quantile" for quantile envelope (default: quantile)
+        quantile_low: Lower quantile (default: 0.25 for 25th percentile)
+        quantile_high: Upper quantile (default: 0.75 for 75th percentile)
 
     Returns:
         Dictionary with Fano factors per station, day type, and time bin
@@ -704,13 +801,22 @@ def run_fano_factor_within_bins_analysis(
 
     print(f"✅ Computed Fano factors for {len(fano_factors)} stations")
 
-    # Compute average Fano factors across dates
-    print("📈 Computing average Fano factors across dates...")
-    avg_fano_factors = compute_average_fano_factors(fano_factors, time_cols)
+    # Compute mean and envelope per station-day_type-bin across dates
+    print("📈 Computing mean and envelope per station across dates...")
+    station_envelopes = compute_mean_and_envelope_per_station(
+        fano_factors,
+        time_cols,
+        envelope_type=envelope_type,
+        quantile_low=quantile_low,
+        quantile_high=quantile_high,
+    )
 
-    # Compute median and IQR across stations
-    print("📈 Computing median and IQR across stations...")
-    median_iqr = compute_median_and_iqr_fano_factors(avg_fano_factors, time_cols)
+    # Aggregate across stations (median of means, aggregate envelopes)
+    print("📈 Aggregating across stations...")
+    median_envelope = compute_median_and_envelope_across_stations(
+        station_envelopes,
+        time_cols,
+    )
 
     # Generate plots
     print("📊 Generating plots...")
@@ -721,15 +827,21 @@ def run_fano_factor_within_bins_analysis(
     output_dir = Path(output_dir)
 
     plot_fano_factors(
-        median_iqr, time_cols, output_dir=output_dir, count_type=count_type
+        median_envelope,
+        time_cols,
+        output_dir=output_dir,
+        count_type=count_type,
+        envelope_type=envelope_type,
+        quantile_low=quantile_low,
+        quantile_high=quantile_high,
     )
 
     print(f"\n✅ Completed Fano factor within bins analysis for {count_type}")
 
     return {
         "fano_factors": fano_factors,
-        "avg_fano_factors": avg_fano_factors,
-        "median_iqr": median_iqr,
+        "station_envelopes": station_envelopes,
+        "median_envelope": median_envelope,
         "time_columns": time_cols,
     }
 
@@ -781,6 +893,24 @@ if __name__ == "__main__":
         default=None,
         help="Size of sub-bins in minutes for Fano factor computation. If None, uses value from params.json or defaults to 1 minute. (default: None)",
     )
+    parser.add_argument(
+        "--envelope_type",
+        choices=["std", "quantile"],
+        default="quantile",
+        help="Type of envelope: 'std' for ±1 std band, 'quantile' for quantile range (default: quantile)",
+    )
+    parser.add_argument(
+        "--quantile_low",
+        type=float,
+        default=0.25,
+        help="Lower quantile for quantile envelope (default: 0.25)",
+    )
+    parser.add_argument(
+        "--quantile_high",
+        type=float,
+        default=0.75,
+        help="Upper quantile for quantile envelope (default: 0.75)",
+    )
 
     args = parser.parse_args()
 
@@ -792,6 +922,9 @@ if __name__ == "__main__":
         data_dir=Path(args.data_dir) if args.data_dir else None,
         date_percentage=args.date_percentage,
         delta_minutes=args.delta_minutes,
+        envelope_type=args.envelope_type,
+        quantile_low=args.quantile_low,
+        quantile_high=args.quantile_high,
     )
 
     print(f"\n📊 Generated Fano factor within bins analysis for {args.count_type}")

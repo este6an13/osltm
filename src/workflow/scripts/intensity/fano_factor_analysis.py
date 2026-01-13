@@ -13,7 +13,6 @@ Overdispersion → Fano > 1
 
 Generates plots showing:
 - For each day type: median Fano factor across stations vs time bins
-- Interquartile envelope
 - Horizontal reference line at 1
 """
 
@@ -127,19 +126,19 @@ def compute_fano_factors(
     return results
 
 
-def compute_median_and_iqr_fano_factors(
+def compute_median_fano_factors(
     fano_factors: dict[str, dict[str, dict[str, float]]],
     time_cols: list[str],
 ) -> dict[str, dict[str, np.ndarray]]:
     """
-    Compute median and interquartile range of Fano factors across stations.
+    Compute median Fano factors across stations.
 
     Args:
         fano_factors: Dictionary from compute_fano_factors
         time_cols: List of time column names (sorted)
 
     Returns:
-        Dictionary: {day_type: {"median": array, "q25": array, "q75": array}}
+        Dictionary: {day_type: {"median": array}}
     """
     results = {}
 
@@ -157,42 +156,35 @@ def compute_median_and_iqr_fano_factors(
                     if not np.isnan(fano):
                         fano_by_bin[time_col].append(fano)
 
-        # Compute median and quartiles for each time bin
+        # Compute median for each time bin
         median_values = []
-        q25_values = []
-        q75_values = []
 
         for time_col in time_cols:
             fano_list = fano_by_bin[time_col]
             if len(fano_list) > 0:
-                median_values.append(np.median(fano_list))
-                q25_values.append(np.percentile(fano_list, 25))
-                q75_values.append(np.percentile(fano_list, 75))
+                median = np.median(fano_list)
+                median_values.append(median)
             else:
                 median_values.append(np.nan)
-                q25_values.append(np.nan)
-                q75_values.append(np.nan)
 
         results[day_type] = {
             "median": np.array(median_values),
-            "q25": np.array(q25_values),
-            "q75": np.array(q75_values),
         }
 
     return results
 
 
 def plot_fano_factors(
-    median_iqr: dict[str, dict[str, np.ndarray]],
+    median_factors: dict[str, dict[str, np.ndarray]],
     time_cols: list[str],
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
 ) -> None:
     """
-    Plot Fano factors with median and interquartile envelope.
+    Plot Fano factors with median line.
 
     Args:
-        median_iqr: Dictionary from compute_median_and_iqr_fano_factors
+        median_factors: Dictionary from compute_median_fano_factors
         time_cols: List of time column names (sorted)
         output_dir: Optional directory to save plots
         count_type: Type of counts ("checkins" or "checkouts")
@@ -212,7 +204,7 @@ def plot_fano_factors(
     for idx, day_type in enumerate(DATE_TYPE_ORDER):
         ax = axes[idx]
 
-        if day_type not in median_iqr:
+        if day_type not in median_factors:
             ax.text(
                 0.5,
                 0.5,
@@ -228,24 +220,33 @@ def plot_fano_factors(
             )
             continue
 
-        median = median_iqr[day_type]["median"]
-        q25 = median_iqr[day_type]["q25"]
-        q75 = median_iqr[day_type]["q75"]
+        median = median_factors[day_type]["median"]
 
-        # Plot interquartile envelope
-        ax.fill_between(
-            time_hours,
-            q25,
-            q75,
-            alpha=0.3,
-            color="blue",
-            label="IQR (25th-75th percentile)",
-        )
+        # Filter out NaN values for plotting
+        valid_mask = ~np.isnan(median)
+        if not np.any(valid_mask):
+            ax.text(
+                0.5,
+                0.5,
+                f"No valid data for {DATE_TYPE_LABELS.get(day_type, day_type)}",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+            )
+            ax.set_title(
+                f"{DATE_TYPE_LABELS.get(day_type, day_type)} ({count_type.capitalize()})",
+                fontsize=14,
+                fontweight="bold",
+            )
+            continue
+
+        time_hours_valid = time_hours[valid_mask]
+        median_valid = median[valid_mask]
 
         # Plot median line
         ax.plot(
-            time_hours,
-            median,
+            time_hours_valid,
+            median_valid,
             "o-",
             color="blue",
             linewidth=2,
@@ -265,7 +266,7 @@ def plot_fano_factors(
             fontsize=14,
             fontweight="bold",
         )
-        ax.legend(loc="best")
+        ax.legend(loc="best", framealpha=0.9)
         ax.grid(True, alpha=0.3)
         ax.set_xlim(time_hours[0] - 0.5, time_hours[-1] + 0.5)
 
@@ -361,9 +362,9 @@ def run_fano_factor_analysis(
 
     print(f"✅ Computed Fano factors for {len(fano_factors)} stations")
 
-    # Compute median and IQR across stations
-    print("📈 Computing median and IQR across stations...")
-    median_iqr = compute_median_and_iqr_fano_factors(fano_factors, time_cols)
+    # Compute median across stations
+    print("📈 Computing median across stations...")
+    median_factors = compute_median_fano_factors(fano_factors, time_cols)
 
     # Generate plots
     print("📊 Generating plots...")
@@ -374,14 +375,17 @@ def run_fano_factor_analysis(
     output_dir = Path(output_dir)
 
     plot_fano_factors(
-        median_iqr, time_cols, output_dir=output_dir, count_type=count_type
+        median_factors,
+        time_cols,
+        output_dir=output_dir,
+        count_type=count_type,
     )
 
     print(f"\n✅ Completed Fano factor analysis for {count_type}")
 
     return {
         "fano_factors": fano_factors,
-        "median_iqr": median_iqr,
+        "median_factors": median_factors,
         "time_columns": time_cols,
     }
 
