@@ -11,7 +11,6 @@ Plots average within-bin Fano factor per station and day type as a curve.
 """
 
 import json
-import re
 from collections import defaultdict
 from datetime import datetime
 from datetime import time as dt_time
@@ -23,8 +22,8 @@ import numpy as np
 import pandas as pd
 
 from src.utils.day_type import get_day_type
-from src.utils.stations import extract_station_info
 from src.workflow.data_loader import load_data, load_persisted_data
+from src.workflow.data_reader import load_csv_file as load_csv_file_from_reader
 
 DATE_TYPE_LABELS = {
     "WD": "Weekday",
@@ -114,144 +113,12 @@ def load_csv_file(
         DataFrame with columns: datetime, station_code, station_name, hour, minute, second, hour_float
         For checkouts, counts are expanded into individual events.
     """
-    if count_type == "checkins":
-        # Checkins: each row is an event, datetime is in Fecha_Transaccion
-        station_col = "Estacion_Parada"
-        usecols = ["Fecha_Transaccion", station_col]
-
-        try:
-            df = pd.read_csv(
-                csv_path,
-                usecols=usecols,
-                parse_dates=["Fecha_Transaccion"],
-            )
-        except KeyError:
-            # Try alternative column name if first attempt fails
-            station_col = "Estacion"
-            usecols = ["Fecha_Transaccion", station_col]
-            df = pd.read_csv(
-                csv_path,
-                usecols=usecols,
-                parse_dates=["Fecha_Transaccion"],
-            )
-
-        # Rename datetime column
-        df = df.rename(columns={"Fecha_Transaccion": "datetime"})
-
-    else:  # checkouts
-        # Checkouts: each row is a timestamp with count in Salidas_S
-        # Time is split into Fecha_Transaccion (date) and Tiempo (time)
-        station_col = "Estacion"
-        usecols = ["Fecha_Transaccion", "Tiempo", station_col, "Salidas_S"]
-
-        try:
-            df = pd.read_csv(
-                csv_path,
-                usecols=usecols,
-            )
-        except KeyError:
-            # Try alternative column name if first attempt fails
-            station_col = "Estacion_Parada"
-            usecols = ["Fecha_Transaccion", "Tiempo", station_col, "Salidas_S"]
-            df = pd.read_csv(
-                csv_path,
-                usecols=usecols,
-            )
-
-        # Combine Fecha_Transaccion and Tiempo into datetime
-        df["datetime"] = pd.to_datetime(
-            df["Fecha_Transaccion"].astype(str) + " " + df["Tiempo"].astype(str)
-        )
-
-        # Filter by stations early using string pattern matching
-        if station_codes:
-            pattern = "|".join([re.escape(f"({code})") for code in station_codes])
-            df = df[
-                df[station_col]
-                .astype(str)
-                .str.contains(pattern, case=False, regex=True)
-            ].copy()
-
-        # Extract station code and name
-        df[["station_code", "station_name"]] = df[station_col].apply(
-            lambda x: pd.Series(extract_station_info(x))
-        )
-
-        # Filter by exact station code match
-        if station_codes:
-            df = df[df["station_code"].isin(station_codes)].copy()
-
-        # Group by datetime and station, sum counts (in case of duplicates)
-        df = df.groupby(["datetime", "station_code", "station_name"], as_index=False)[
-            "Salidas_S"
-        ].sum()
-
-        # Expand counts into individual events
-        # Create a list of DataFrames, one for each count
-        expanded_rows = []
-        for _, row in df.iterrows():
-            count = int(row["Salidas_S"])
-            if count > 0:
-                # Create count number of rows with the same datetime
-                for _ in range(count):
-                    expanded_rows.append(
-                        {
-                            "datetime": row["datetime"],
-                            "station_code": row["station_code"],
-                            "station_name": row["station_name"],
-                        }
-                    )
-
-        if expanded_rows:
-            df = pd.DataFrame(expanded_rows)
-        else:
-            # Return empty dataframe with correct columns
-            df = pd.DataFrame(columns=["datetime", "station_code", "station_name"])
-
-    # Filter by stations early using string pattern matching (for checkins)
-    if count_type == "checkins" and station_codes:
-        # Create pattern to match any of our station codes
-        pattern = "|".join([re.escape(f"({code})") for code in station_codes])
-        # Use the station column that was determined in the checkins block
-        checkins_station_col = (
-            "Estacion_Parada" if "Estacion_Parada" in df.columns else "Estacion"
-        )
-        df = df[
-            df[checkins_station_col]
-            .astype(str)
-            .str.contains(pattern, case=False, regex=True)
-        ].copy()
-
-    # Extract station code and name (for checkins, or if not already done)
-    if count_type == "checkins":
-        checkins_station_col = (
-            "Estacion_Parada" if "Estacion_Parada" in df.columns else "Estacion"
-        )
-        df[["station_code", "station_name"]] = df[checkins_station_col].apply(
-            lambda x: pd.Series(extract_station_info(x))
-        )
-
-        # Filter by exact station code match (in case pattern matched multiple)
-        if station_codes:
-            df = df[df["station_code"].isin(station_codes)].copy()
-
-    # Extract time components
-    df["hour"] = df["datetime"].dt.hour
-    df["minute"] = df["datetime"].dt.minute
-    df["second"] = df["datetime"].dt.second
-    df["hour_float"] = df["hour"] + df["minute"] / 60.0 + df["second"] / 3600.0
-
-    return df[
-        [
-            "datetime",
-            "station_code",
-            "station_name",
-            "hour",
-            "minute",
-            "second",
-            "hour_float",
-        ]
-    ].copy()
+    return load_csv_file_from_reader(
+        csv_path=csv_path,
+        station_codes=station_codes,
+        count_type=count_type,
+        include_time_components=True,
+    )
 
 
 def expand_database_counts_to_events(

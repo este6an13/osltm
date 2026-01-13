@@ -18,7 +18,6 @@ event, which are required for the time rescaling theorem analysis.
 
 import json
 import random
-import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -30,8 +29,8 @@ import pandas as pd
 from scipy import stats
 
 from src.utils.day_type import get_day_type
-from src.utils.stations import extract_station_info
 from src.workflow.data_loader import load_data, load_persisted_data
+from src.workflow.data_reader import load_csv_file as load_csv_file_from_reader
 
 DATE_TYPE_LABELS = {
     "WD": "Weekday",
@@ -288,51 +287,12 @@ def load_csv_file(
     Returns:
         DataFrame with columns: datetime, station_code, station_name, hour
     """
-    # Checkins use Estacion_Parada column
-    station_col = "Estacion_Parada"
-    usecols = ["Fecha_Transaccion", station_col]
-
-    # Read CSV with parse_dates for faster datetime parsing
-    try:
-        df = pd.read_csv(
-            csv_path,
-            usecols=usecols,
-            parse_dates=["Fecha_Transaccion"],
-        )
-    except KeyError:
-        # Try alternative column name if first attempt fails
-        station_col = "Estacion"
-        usecols = ["Fecha_Transaccion", station_col]
-        df = pd.read_csv(
-            csv_path,
-            usecols=usecols,
-            parse_dates=["Fecha_Transaccion"],
-        )
-
-    # Filter by stations early using string pattern matching (much faster than extracting all)
-    if station_codes:
-        # Create pattern to match any of our station codes
-        # Station code is in format "(05000) Station Name", so we look for codes in parentheses
-        # Escape parentheses to avoid regex group interpretation
-        pattern = "|".join([re.escape(f"({code})") for code in station_codes])
-        df = df[
-            df[station_col].astype(str).str.contains(pattern, case=False, regex=True)
-        ].copy()
-
-    # Extract station code and name (only for filtered rows if station_codes provided)
-    df[["station_code", "station_name"]] = df[station_col].apply(
-        lambda x: pd.Series(extract_station_info(x))
+    return load_csv_file_from_reader(
+        csv_path=csv_path,
+        station_codes=station_codes,
+        count_type="checkins",
+        include_time_components=False,
     )
-
-    # Filter by exact station code match (in case pattern matched multiple)
-    if station_codes:
-        df = df[df["station_code"].isin(station_codes)].copy()
-
-    # Rename datetime column and extract hour of day (as float)
-    df = df.rename(columns={"Fecha_Transaccion": "datetime"})
-    df["hour"] = df["datetime"].dt.hour + df["datetime"].dt.minute / 60.0
-
-    return df[["datetime", "station_code", "station_name", "hour"]].copy()
 
 
 def apply_time_rescaling(
