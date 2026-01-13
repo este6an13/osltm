@@ -14,6 +14,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import datetime
+from datetime import time as dt_time
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -23,7 +24,7 @@ import pandas as pd
 
 from src.utils.day_type import get_day_type
 from src.utils.stations import extract_station_info
-from src.workflow.data_loader import load_persisted_data
+from src.workflow.data_loader import load_data, load_persisted_data
 
 DATE_TYPE_LABELS = {
     "WD": "Weekday",
@@ -241,6 +242,95 @@ def load_csv_file(
     df["hour_float"] = df["hour"] + df["minute"] / 60.0 + df["second"] / 3600.0
 
     return df[
+        [
+            "datetime",
+            "station_code",
+            "station_name",
+            "hour",
+            "minute",
+            "second",
+            "hour_float",
+        ]
+    ].copy()
+
+
+def expand_database_counts_to_events(
+    df: pd.DataFrame, time_cols: list[str]
+) -> pd.DataFrame:
+    """
+    Convert database DataFrame with time columns (t_400, t_415, etc.) into individual events.
+
+    Args:
+        df: DataFrame with columns: year, month, day, station_code, station_name,
+            and time columns (t_400, t_415, ..., t_2300) containing counts
+        time_cols: List of time column names (e.g., ["t_400", "t_415", ...])
+
+    Returns:
+        DataFrame with columns: datetime, station_code, station_name, hour, minute, second, hour_float
+        Each row represents one event.
+    """
+    expanded_rows = []
+
+    for _, row in df.iterrows():
+        # Create date from year, month, day
+        date_obj = datetime(int(row["year"]), int(row["month"]), int(row["day"])).date()
+
+        station_code = row["station_code"]
+        station_name = row["station_name"]
+
+        # Process each time column
+        for time_col in time_cols:
+            count = row.get(time_col, 0)
+            if pd.isna(count) or count == 0:
+                continue
+
+            # Extract time from column name (e.g., "t_400" -> 400)
+            time_str = time_col.replace("t_", "")
+            time_int = int(time_str)
+            hours = time_int // 100
+            minutes = time_int % 100
+
+            # Create datetime for the start of this 15-minute window
+            event_datetime = datetime.combine(
+                date_obj, dt_time(hour=hours, minute=minutes, second=0)
+            )
+
+            # Expand count into individual events
+            count_int = int(count)
+            for _ in range(count_int):
+                expanded_rows.append(
+                    {
+                        "datetime": event_datetime,
+                        "station_code": station_code,
+                        "station_name": station_name,
+                    }
+                )
+
+    if not expanded_rows:
+        # Return empty dataframe with correct columns
+        return pd.DataFrame(
+            columns=[
+                "datetime",
+                "station_code",
+                "station_name",
+                "hour",
+                "minute",
+                "second",
+                "hour_float",
+            ]
+        )
+
+    df_events = pd.DataFrame(expanded_rows)
+
+    # Extract time components
+    df_events["hour"] = df_events["datetime"].dt.hour
+    df_events["minute"] = df_events["datetime"].dt.minute
+    df_events["second"] = df_events["datetime"].dt.second
+    df_events["hour_float"] = (
+        df_events["hour"] + df_events["minute"] / 60.0 + df_events["second"] / 3600.0
+    )
+
+    return df_events[
         [
             "datetime",
             "station_code",
@@ -582,7 +672,8 @@ def run_fano_factor_within_bins_analysis(
         output_dir: Directory to save plots (default: src/workflow/results/fano_factor_within_bins)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all from data.
-        data_dir: Directory containing CSV files (default: data/check_ins/daily or data/check_outs/daily)
+        data_dir: Directory containing CSV files for checkins only (default: data/check_ins/daily).
+            Not used for checkouts, which are loaded from database.
         date_percentage: Optional percentage of dates to use per day type (0.0 to 1.0).
             If None, uses all dates. Uses seed from params.json for reproducibility.
         delta_minutes: Size of sub-bins in minutes for Fano factor computation.
@@ -590,6 +681,10 @@ def run_fano_factor_within_bins_analysis(
 
     Returns:
         Dictionary with Fano factors per station, day type, and time bin
+
+    Note:
+        - For checkouts: Data is loaded from database using data_loader.load_data()
+        - For checkins: Data is loaded from CSV files
     """
     # Load parameters
     if params_path is None:
@@ -604,15 +699,6 @@ def run_fano_factor_within_bins_analysis(
     time_step = step4_params.get("time_step", 15)
     if delta_minutes is None:
         delta_minutes = step4_params.get("delta_minutes", 1)
-
-    # Set data directory
-    if data_dir is None:
-        if count_type == "checkins":
-            data_dir = Path("data/check_ins/daily")
-        else:
-            data_dir = Path("data/check_outs/daily")
-    else:
-        data_dir = Path(data_dir)
 
     # Load sampled dates and stations
     persistence_dir = step4_params.get("persistence_dir", Path("src/workflow/data"))
@@ -659,10 +745,6 @@ def run_fano_factor_within_bins_analysis(
     elif station_codes is None:
         raise ValueError("No station codes provided and none found in data.")
 
-    print(f"📊 Processing {count_type} CSV files...")
-    print(f"   Dates: {len(sampled_dates)}")
-    print(f"   Stations: {len(station_codes)}")
-
     # Generate time columns
     time_cols = []
     current_time = time_min
@@ -678,34 +760,71 @@ def run_fano_factor_within_bins_analysis(
         current_time = hours * 100 + minutes
     time_cols = sort_time_columns(time_cols)
 
-    # Process each CSV file
-    all_dataframes = []
-    for date_str in sampled_dates:
-        csv_filename = f"{date_str}.csv"
-        csv_path = data_dir / csv_filename
+    # Load data: use database for checkouts, CSV files for checkins
+    if count_type == "checkouts":
+        print(f"📊 Loading {count_type} from database...")
+        print(f"   Dates: {len(sampled_dates)}")
+        print(f"   Stations: {len(station_codes)}")
 
-        if not csv_path.exists():
-            print(f"⚠️  File not found: {csv_path}, skipping...")
-            continue
+        # Load data from database
+        data = load_data(
+            dates=sampled_dates,
+            station_codes=station_codes,
+            include_checkins=False,
+            include_checkouts=True,
+            persistence_dir=persistence_dir,
+            time_min=time_min,
+            time_max=time_max,
+            time_step=time_step,
+        )
 
-        # Load CSV file with station filtering
-        try:
-            csv_df = load_csv_file(
-                csv_path, station_codes=station_codes, count_type=count_type
-            )
-            if not csv_df.empty:
-                all_dataframes.append(csv_df)
-        except Exception as e:
-            print(f"⚠️  Error loading {csv_filename}: {e}, skipping...")
-            continue
+        if "checkouts" not in data or data["checkouts"].empty:
+            raise ValueError("No checkout data loaded from database")
 
-    if not all_dataframes:
-        raise ValueError("No data loaded from CSV files")
+        # Convert database DataFrame to individual events
+        print("🔄 Expanding counts to individual events...")
+        combined_df = expand_database_counts_to_events(data["checkouts"], time_cols)
+        print(f"   Total events: {len(combined_df)}")
 
-    # Combine all dataframes
-    print("🔍 Computing Fano factors within bins...")
-    combined_df = pd.concat(all_dataframes, ignore_index=True)
-    print(f"   Total events: {len(combined_df)}")
+    else:  # checkins
+        print(f"📊 Processing {count_type} CSV files...")
+        print(f"   Dates: {len(sampled_dates)}")
+        print(f"   Stations: {len(station_codes)}")
+
+        # Set data directory for checkins
+        if data_dir is None:
+            data_dir = Path("data/check_ins/daily")
+        else:
+            data_dir = Path(data_dir)
+
+        # Process each CSV file
+        all_dataframes = []
+        for date_str in sampled_dates:
+            csv_filename = f"{date_str}.csv"
+            csv_path = data_dir / csv_filename
+
+            if not csv_path.exists():
+                print(f"⚠️  File not found: {csv_path}, skipping...")
+                continue
+
+            # Load CSV file with station filtering
+            try:
+                csv_df = load_csv_file(
+                    csv_path, station_codes=station_codes, count_type=count_type
+                )
+                if not csv_df.empty:
+                    all_dataframes.append(csv_df)
+            except Exception as e:
+                print(f"⚠️  Error loading {csv_filename}: {e}, skipping...")
+                continue
+
+        if not all_dataframes:
+            raise ValueError("No data loaded from CSV files")
+
+        # Combine all dataframes
+        print("🔍 Computing Fano factors within bins...")
+        combined_df = pd.concat(all_dataframes, ignore_index=True)
+        print(f"   Total events: {len(combined_df)}")
 
     # Compute Fano factors within bins
     fano_factors = compute_fano_factors_within_bins(
@@ -781,7 +900,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_dir",
         type=str,
-        help="Directory containing CSV files (default: data/check_ins/daily or data/check_outs/daily)",
+        help="Directory containing CSV files for checkins only (default: data/check_ins/daily). Not used for checkouts, which are loaded from database.",
     )
     parser.add_argument(
         "--date_percentage",
