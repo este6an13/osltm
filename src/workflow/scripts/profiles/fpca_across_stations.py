@@ -414,6 +414,40 @@ def run_fpca_across_stations(
         day_types=day_types,
     )
 
+    # Save scores CSV
+    scores_df = pd.DataFrame(
+        {
+            "station_code": station_codes_filtered.values,
+            "station_name": station_names.values,
+            "date_type": date_types.values,
+            "date_str": date_strs.values,
+        }
+    )
+    for i in range(projected.shape[1]):
+        scores_df[f"PC{i + 1}"] = projected[:, i]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    scores_csv = output_dir / f"fpca_across_stations_{count_type}.csv"
+    scores_df.to_csv(scores_csv, index=False)
+    print(f"💾 Saved scores to {scores_csv}")
+
+    # Save explained variance CSV
+    variance_rows = []
+    cumulative = 0.0
+    for i, ev in enumerate(explained_variance):
+        cumulative += ev
+        variance_rows.append(
+            {
+                "component": f"PC{i + 1}",
+                "explained_variance_ratio": ev,
+                "cumulative_explained_variance": cumulative,
+            }
+        )
+    variance_df = pd.DataFrame(variance_rows)
+    variance_csv = output_dir / f"fpca_across_stations_variance_{count_type}.csv"
+    variance_df.to_csv(variance_csv, index=False)
+    print(f"💾 Saved explained variance to {variance_csv}")
+
     # Prepare results
     results = {
         "projected": projected,

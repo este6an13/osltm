@@ -444,6 +444,7 @@ def run_distance_analysis(
     output_dir = Path(output_dir)
 
     results_list = []
+    group_details_list = []
 
     # Process each station
     for station_code in station_codes:
@@ -492,11 +493,30 @@ def run_distance_analysis(
                 "between_std": np.std(results["between_distances"])
                 if results["between_distances"]
                 else np.nan,
+                "within_median": np.median(results["within_distances"])
+                if results["within_distances"]
+                else np.nan,
+                "between_median": np.median(results["between_distances"])
+                if results["between_distances"]
+                else np.nan,
                 "n_within": results["n_within"],
                 "n_between": results["n_between"],
                 "n_days": len(time_series),
             }
         )
+
+        # Store per-group detail
+        for group_name, group_data in results["by_group"].items():
+            group_details_list.append(
+                {
+                    "station_code": station_code,
+                    "station_name": station_name,
+                    "group": group_name,
+                    "mean": group_data["mean"],
+                    "std": group_data["std"],
+                    "count": group_data["count"],
+                }
+            )
 
         # Plot if requested
         if plot:
@@ -512,6 +532,19 @@ def run_distance_analysis(
     results_df = pd.DataFrame(results_list)
 
     if not results_df.empty:
+        # Add interpretation column based on ratio
+        def interpret_ratio(r):
+            if r < 0.3:
+                return "strong"
+            elif r < 0.5:
+                return "moderate"
+            elif r < 0.8:
+                return "weak"
+            else:
+                return "poor"
+
+        results_df["interpretation"] = results_df["ratio"].apply(interpret_ratio)
+
         print("\n📊 Summary Statistics:")
         print(f"   Mean ratio: {results_df['ratio'].mean():.3f}")
         print(f"   Median ratio: {results_df['ratio'].median():.3f}")
@@ -522,6 +555,13 @@ def run_distance_analysis(
         csv_path = output_dir / f"distance_ratios_{count_type}.csv"
         results_df.to_csv(csv_path, index=False)
         print(f"💾 Saved results to {csv_path}")
+
+    # Save per-group detail CSV
+    if group_details_list:
+        group_df = pd.DataFrame(group_details_list)
+        group_csv_path = output_dir / f"distance_details_{count_type}.csv"
+        group_df.to_csv(group_csv_path, index=False)
+        print(f"💾 Saved per-group details to {group_csv_path}")
 
     print(f"\n✅ Completed analysis for {len(results_df)} stations")
     return results_df

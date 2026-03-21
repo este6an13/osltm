@@ -326,6 +326,44 @@ def run_fpca_per_station(
         )
 
     print(f"\n✅ Completed FPCA for {len(results)} stations")
+
+    # Save combined scores CSV
+    all_scores = []
+    all_variance = []
+    for station_code, station_data in results.items():
+        projected = station_data["projected"]
+        for i in range(len(projected)):
+            row = {
+                "station_code": station_code,
+                "station_name": station_data["station_name"],
+                "date_type": station_data["date_types"][i],
+                "date_str": station_data["date_strs"][i],
+            }
+            for j in range(projected.shape[1]):
+                row[f"PC{j + 1}"] = projected[i, j]
+            all_scores.append(row)
+
+        ev = station_data["explained_variance"]
+        variance_row = {
+            "station_code": station_code,
+            "station_name": station_data["station_name"],
+        }
+        for j in range(len(ev)):
+            variance_row[f"PC{j + 1}_explained_variance"] = ev[j]
+        all_variance.append(variance_row)
+
+    if all_scores:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        scores_df = pd.DataFrame(all_scores)
+        scores_csv = output_dir / f"fpca_per_station_{count_type}.csv"
+        scores_df.to_csv(scores_csv, index=False)
+        print(f"💾 Saved scores to {scores_csv}")
+
+        variance_df = pd.DataFrame(all_variance)
+        variance_csv = output_dir / f"fpca_per_station_variance_{count_type}.csv"
+        variance_df.to_csv(variance_csv, index=False)
+        print(f"💾 Saved explained variance to {variance_csv}")
+
     return results
 
 

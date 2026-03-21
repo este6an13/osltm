@@ -509,6 +509,36 @@ def run_mean_envelope_analysis(
         )
 
     print(f"\n✅ Completed analysis for {len(results)} stations")
+
+    # Save combined CSV with mean/envelope data for all stations
+    all_rows = []
+    for station_code, station_data in results.items():
+        station_name = station_data["station_name"]
+        station_results = station_data["results"]
+        for day_type, data in station_results.items():
+            for i, mean_val in enumerate(data["mean"]):
+                row = {
+                    "station_code": station_code,
+                    "station_name": station_name,
+                    "day_type": day_type,
+                    "time_bin_index": i,
+                    "time_bin": computed_time_cols[i]
+                    if computed_time_cols and i < len(computed_time_cols)
+                    else f"bin_{i}",
+                    "mean": mean_val,
+                    "lower": data["lower"][i],
+                    "upper": data["upper"][i],
+                    "n_days": data["n_days"],
+                }
+                all_rows.append(row)
+
+    if all_rows:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        csv_df = pd.DataFrame(all_rows)
+        csv_path = output_dir / f"mean_envelope_{count_type}_{envelope_type}.csv"
+        csv_df.to_csv(csv_path, index=False)
+        print(f"💾 Saved envelope data to {csv_path}")
+
     return results
 
 

@@ -51,13 +51,13 @@ uv run python -m src.workflow.<module_path> [args]
 Runs steps 1–4 sequentially. Loads [params.json](file:///d:/dequi/repositories/osltm/src/workflow/params.json) and passes the params dict to each step.
 
 ```
-uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 1 2 3 4
+uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 1,2,3,4
 ```
 
 | Arg | Default | Purpose |
 |-----|---------|---------|
 | `--params` | [src/workflow/params.json](file:///d:/dequi/repositories/osltm/src/workflow/params.json) | Config file |
-| `--steps` | all | Which steps to run (space-separated ints 1–4) |
+| `--steps` | all | Which steps to run (comma-separated ints 1–4) |
 
 ---
 
@@ -67,8 +67,8 @@ uv run python -m src.workflow.workflow --params src/workflow/params.json --steps
 
 | [params.json](file:///d:/dequi/repositories/osltm/src/workflow/params.json) key | Default | Purpose |
 |--------------------|---------|---------|
-| `start_date` | `"20190801"` | Start of date range |
-| `end_date` | `"20231231"` | End of date range |
+| `start_date` | `"2024-06-25"` | Start of date range |
+| `end_date` | `"2026-01-31"` | End of date range |
 | `n_per_stratum` | `10` | Dates to sample per day-type stratum |
 | `days_offset` | `0` | Offset from start |
 | `seed` | `42` | Random seed |

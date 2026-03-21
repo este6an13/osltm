@@ -435,6 +435,37 @@ def run_shape_clustering(
     )
 
     print("\n✅ Completed shape-based clustering")
+
+    # Save clustering summary CSV
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_rows = []
+    for i, station_code in enumerate(normalized_profiles.index):
+        station_name = station_names.get(station_code, station_code)
+        summary_rows.append(
+            {
+                "station_code": station_code,
+                "station_name": station_name,
+                "cluster": int(cluster_labels[i]),
+            }
+        )
+    summary_df = pd.DataFrame(summary_rows)
+
+    # Add cluster sizes
+    unique_clusters, counts = np.unique(cluster_labels, return_counts=True)
+    cluster_size_map = dict(zip(unique_clusters, counts))
+    summary_df["cluster_size"] = summary_df["cluster"].map(cluster_size_map)
+
+    # Add explained variance info
+    for j in range(len(explained_variance)):
+        summary_df[f"PC{j + 1}_explained_variance"] = explained_variance[j]
+
+    csv_path = (
+        output_dir
+        / f"clustering_shape_{day_type}_{count_type}_{n_clusters}clusters.csv"
+    )
+    summary_df.to_csv(csv_path, index=False)
+    print(f"💾 Saved clustering summary to {csv_path}")
+
     return normalized_profiles, cluster_labels
 
 

@@ -381,6 +381,43 @@ def run_fano_factor_analysis(
         count_type=count_type,
     )
 
+    # Save per-station Fano factor CSV
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fano_rows = []
+    for station_code, daytype_factors in fano_factors.items():
+        for day_type, time_factors in daytype_factors.items():
+            for time_col, fano in time_factors.items():
+                fano_rows.append(
+                    {
+                        "station_code": station_code,
+                        "day_type": day_type,
+                        "time_bin": time_col,
+                        "fano_factor": fano,
+                    }
+                )
+    if fano_rows:
+        fano_df = pd.DataFrame(fano_rows)
+        fano_csv = output_dir / f"fano_factor_{count_type}.csv"
+        fano_df.to_csv(fano_csv, index=False)
+        print(f"💾 Saved Fano factors to {fano_csv}")
+
+    # Save median summary CSV
+    median_rows = []
+    for day_type, data in median_factors.items():
+        for i, time_col in enumerate(time_cols):
+            median_rows.append(
+                {
+                    "day_type": day_type,
+                    "time_bin": time_col,
+                    "median_fano_factor": data["median"][i],
+                }
+            )
+    if median_rows:
+        median_df = pd.DataFrame(median_rows)
+        median_csv = output_dir / f"fano_factor_median_{count_type}.csv"
+        median_df.to_csv(median_csv, index=False)
+        print(f"💾 Saved median Fano factors to {median_csv}")
+
     print(f"\n✅ Completed Fano factor analysis for {count_type}")
 
     return {

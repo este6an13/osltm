@@ -840,6 +840,26 @@ def run_fano_factor_within_bins_analysis(
         quantile_high=quantile_high,
     )
 
+    # Save median envelope CSV
+    output_dir.mkdir(parents=True, exist_ok=True)
+    envelope_rows = []
+    for day_type, data in median_envelope.items():
+        for i, time_col in enumerate(time_cols):
+            envelope_rows.append(
+                {
+                    "day_type": day_type,
+                    "time_bin": time_col,
+                    "median": data["median"][i],
+                    "lower": data["lower"][i],
+                    "upper": data["upper"][i],
+                }
+            )
+    if envelope_rows:
+        envelope_df = pd.DataFrame(envelope_rows)
+        envelope_csv = output_dir / f"fano_factor_within_bins_{count_type}.csv"
+        envelope_df.to_csv(envelope_csv, index=False)
+        print(f"💾 Saved Fano factor within-bins data to {envelope_csv}")
+
     print(f"\n✅ Completed Fano factor within bins analysis for {count_type}")
 
     return {

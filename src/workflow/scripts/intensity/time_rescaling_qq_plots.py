@@ -608,6 +608,7 @@ def run_time_rescaling_analysis(
     output_dir = Path(output_dir)
 
     results = {}
+    ks_stats_rows = []
 
     # Generate QQ-plots
     for station_code in station_codes:
@@ -642,10 +643,32 @@ def run_time_rescaling_analysis(
                 output_dir=output_dir,
             )
 
+            # Compute KS test
+            ks_stat, ks_pvalue = stats.kstest(u_vals, "uniform")
+
             results[station_code][day_type] = {
                 "n_events": len(u_vals),
                 "uniform_values": u_vals.tolist(),
             }
+
+            ks_stats_rows.append(
+                {
+                    "station_code": station_code,
+                    "station_name": station_name,
+                    "day_type": day_type,
+                    "n_events": len(u_vals),
+                    "ks_statistic": ks_stat,
+                    "ks_pvalue": ks_pvalue,
+                }
+            )
+
+    # Save KS test statistics CSV
+    if ks_stats_rows:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        ks_df = pd.DataFrame(ks_stats_rows)
+        ks_csv = output_dir / "time_rescaling_ks_stats_checkins.csv"
+        ks_df.to_csv(ks_csv, index=False)
+        print(f"💾 Saved KS test statistics to {ks_csv}")
 
     print(f"\n✅ Completed analysis for {len(results)} stations")
     return results

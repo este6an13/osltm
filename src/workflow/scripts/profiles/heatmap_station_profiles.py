@@ -337,6 +337,14 @@ def run_heatmap_analysis(
         figsize=figsize,
     )
 
+    # Save mean profiles to CSV
+    output_dir.mkdir(parents=True, exist_ok=True)
+    csv_df = mean_profiles_df.copy()
+    csv_df.insert(0, "station_name", csv_df.index.map(station_names))
+    csv_path = output_dir / f"heatmap_profiles_{day_type}_{count_type}.csv"
+    csv_df.to_csv(csv_path, index=True)
+    print(f"💾 Saved mean profiles to {csv_path}")
+
     print("\n✅ Completed heatmap analysis")
     return mean_profiles_df
 
