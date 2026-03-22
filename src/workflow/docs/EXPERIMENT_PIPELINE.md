@@ -153,6 +153,79 @@ uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots \
 
 ---
 
+### Stage 4 — Cox Process Diagnostics
+
+Once Fano factors confirm overdispersion (Fano > 1), these scripts quantify and model the extra-Poisson variability.
+
+#### 4a. Negative Binomial per-bin fit
+
+```bash
+# Fit Poisson vs NegBin per (station, day_type, time_bin) — AIC comparison
+uv run python -m src.workflow.scripts.intensity.negbin_fit \
+  --stations 03000 07112 06000 40000 02205 09121
+```
+
+| Output | What it shows |
+|---|---|
+| `negbin_fit_checkins.csv` | Per-bin: r̂, p̂, Fano, log-likelihoods, AICs, preferred model |
+| `negbin_summary_checkins.csv` | Per day-type: % bins preferring NegBin, median r̂, median ΔAIC |
+| `negbin_dispersion_checkins.png` | 1/r̂ vs time-of-day (higher = more overdispersion) |
+| `negbin_aic_comparison_checkins.png` | ΔAIC vs time-of-day (positive = NegBin preferred) |
+
+#### 4b. LGCP two-stage estimation
+
+```bash
+# Fit GP kernels (SE + Matérn 3/2) to log-residual covariance + Gaussianity validation
+uv run python -m src.workflow.scripts.intensity.lgcp_twostage \
+  --stations 03000 07112 06000 40000 02205 09121
+```
+
+| Output | What it shows |
+|---|---|
+| `lgcp_kernel_params_checkins.csv` | Per (s,d): σ̂², ℓ̂, η̂², AIC/BIC for SE and Matérn, selected kernel |
+| `lgcp_summary_checkins.csv` | Per day-type: median kernel params, % bins rejecting normality |
+| `lgcp_gaussianity_checkins.csv` | Per (s,d,k): Shapiro–Wilk W and p-value |
+| `lgcp_empirical_cov_*.png` | K×K empirical covariance heatmaps |
+| `lgcp_kernel_fit_*.png` | Empirical vs fitted kernel (diagonal + slice) |
+| `lgcp_residual_qq_*.png` | Mahalanobis D² QQ-plots against χ²_K |
+
+#### 4c. Full Bayesian LGCP (Laplace approximation)
+
+```bash
+# Posterior intensity with credible bands + predictive Fano factors
+uv run python -m src.workflow.scripts.intensity.lgcp_bayesian \
+  --stations 03000 07112 06000 40000 02205 09121
+```
+
+> [!NOTE]
+> Requires Phase 2 results (`lgcp_twostage`) to exist first.
+
+| Output | What it shows |
+|---|---|
+| `lgcp_posterior_params_checkins.csv` | Per (s,d,k): posterior mean/std of z, posterior Λ with 95% band |
+| `lgcp_predictive_fano_checkins.csv` | Observed vs model-implied Fano factor per bin |
+| `lgcp_posterior_*.png` | Posterior mean Λ(t) with credible band + observed profiles |
+| `lgcp_predictive_fano_checkins.png` | Fano factor comparison: model vs observed vs Poisson |
+
+#### 4d. LGCP Goodness-of-Fit (time-rescaling)
+
+```bash
+# Compare LGCP vs NHPP via time-rescaling KS test
+uv run python -m src.workflow.scripts.intensity.lgcp_gof \
+  --stations 03000 07112 06000 02205 09121
+```
+
+> [!NOTE]
+> Requires Phase 3 results (`lgcp_bayesian`) and existing NHPP time-rescaling results.
+
+| Output | What it shows |
+|---|---|
+| `lgcp_gof_ks_comparison_checkins.csv` | Per (s,d): NHPP vs LGCP KS statistics and reduction % |
+| `lgcp_gof_qq_*.png` | Side-by-side QQ-plots (NHPP vs LGCP) |
+| `lgcp_gof_ks_reduction_checkins.png` | Bar chart of KS improvement |
+
+---
+
 ## Outputs
 
 All scripts save results to `src/workflow/results/` in subdirectories by analysis type:
@@ -166,6 +239,9 @@ src/workflow/results/
 ├── fano_factor_within_bins/# within-bin Fano CSVs and plots
 ├── fpca_results/           # FPCA score CSVs and scatter plots
 ├── heatmap_results/        # heatmap profile CSVs and images
+├── lgcp_bayesian/          # Bayesian LGCP posterior plots and Fano comparison
+├── lgcp_twostage/          # LGCP kernel fit CSVs and diagnostic plots
+├── negbin_fit/             # NegBin vs Poisson fit CSVs and plots
 └── time_rescaling/         # KS test CSVs and QQ-plots
 ```
 
