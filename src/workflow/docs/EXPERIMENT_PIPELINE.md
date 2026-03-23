@@ -34,6 +34,7 @@ uv run python -m src.workflow.scripts.profiles.cluster_stations_shape_scale --st
 uv run python -m src.workflow.scripts.intensity.fano_factor_analysis --stations 03000 07112 06000 40000 02205 09121
 uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
 uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
+uv run python -m src.workflow.scripts.intensity.hawkes_fit --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
 ```
 
 ---
@@ -223,6 +224,31 @@ uv run python -m src.workflow.scripts.intensity.lgcp_gof \
 | `lgcp_gof_ks_comparison_checkins.csv` | Per (s,d): NHPP vs LGCP KS statistics and reduction % |
 | `lgcp_gof_qq_*.png` | Side-by-side QQ-plots (NHPP vs LGCP) |
 | `lgcp_gof_ks_reduction_checkins.png` | Bar chart of KS improvement |
+
+#### 4e. Continuous-Time Hawkes Process (Exact Timestamps)
+
+```bash
+# Fit continuous-time Hawkes process and generate branching ratio diagnostics
+uv run python -m src.workflow.scripts.intensity.hawkes_fit \
+  --stations 03000 07112 06000 02205 09121 --date_percentage 0.1
+uv run python -m src.workflow.scripts.intensity.hawkes_diagnostics
+
+# Simulate synthetic exact arrivals and aggregate 15-minute counts
+uv run python -m src.workflow.scripts.intensity.hawkes_simulate \
+  --stations 03000 07112 06000 02205 09121 --n_days 5
+```
+
+> [!NOTE]
+> Represents an alternative to LGCP, treating the variance as direct event-triggering (self-excitation) rather than a fluctuating conditionally independent environment. Works strictly on exact timestamp formats (check-ins).
+
+| Output | What it shows |
+|---|---|
+| `hawkes_params_checkins.csv` | Branching ratios ($n$), excitation $\alpha$, decay $\beta$ and baseline volume $\kappa$ |
+| `hawkes_branching_ratio_boxplots.png` | Distribution of $n$ factored by day type |
+| `hawkes_ks_pval_hist.png` | Assessment of GOF uniformization strictness |
+| `hawkes_simulated_events_checkins.csv` | Synthetic raw timestamps `[Fecha_Transaccion, Estacion_Parada]` |
+| `hawkes_simulated_binned_checkins.csv` | Synthetic 15-minute counts generated from the raw timestamps |
+| `hawkes_simulation_comparison_checkins.png` | Plot comparing mean synthetic counts vs observed empirical counts |
 
 ---
 

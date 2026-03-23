@@ -350,6 +350,29 @@ uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins \
   --time_step 60 --delta_minutes 15
 ```
 
+### 4.4 Hawkes Process
+
+Modeling event dependencies with a self-exciting point process.
+
+| Script | Description |
+|---|---|
+| `hawkes_fit` | Fit continuous-time Hawkes process to exact check-in timestamps |
+| `hawkes_diagnostics` | Branching ratio boxplots and time-rescaling GOF tests for Hawkes fits |
+| `hawkes_simulate` | Simulate raw and binned synthetic traffic exact timestamps from the Hawkes process |
+
+```bash
+# Fit Hawkes process for a single station with 10% date sample
+uv run python -m src.workflow.scripts.intensity.hawkes_fit \
+  --stations 03000 --date_percentage 0.1
+
+# Run diagnostics for all fitted Hawkes models (no --stations needed)
+uv run python -m src.workflow.scripts.intensity.hawkes_diagnostics
+
+# Simulate 10 synthetic baseline days using the median fitted parameters
+uv run python -m src.workflow.scripts.intensity.hawkes_simulate \
+  --stations 03000 --n_days 10
+```
+
 ---
 
 ## Experiment Progression (Suggested Order)
@@ -365,6 +388,7 @@ For resuming or starting fresh, follow this order:
 6. Station groups → Shape clustering (3.8) → Shape+Scale clustering (3.9)
 7. Poisson test → Fano across days (4.2) → Fano within bins (4.3)
 8. Intensity    → Time rescaling QQ (4.1)
+9. Hawkes       → Hawkes fit (4.4) → Hawkes diagnostics (4.4)
 ```
 
 ### Quick Smoke Test (runs fast)
@@ -375,4 +399,9 @@ uv run python -m src.workflow.scripts.profiles.fpca_per_station --stations 03000
 uv run python -m src.workflow.scripts.profiles.heatmap_station_profiles --day_type WD
 uv run python -m src.workflow.scripts.intensity.fano_factor_analysis --stations 03000
 uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins --stations 03000 --date_percentage 0.1
+uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots --stations 03000 --date_percentage 0.1
+
+# Hawkes modeling
+uv run python -m src.workflow.scripts.intensity.hawkes_fit --stations 03000 --date_percentage 0.1
+uv run python -m src.workflow.scripts.intensity.hawkes_diagnostics
 ```
