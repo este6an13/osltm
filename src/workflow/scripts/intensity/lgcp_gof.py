@@ -132,6 +132,7 @@ def plot_pit_qq_side_by_side(
     ks_poisson: float,
     ks_pln: float,
     output_dir: Optional[Path] = None,
+    count_type: str = "checkins",
 ) -> None:
     """Side-by-side PIT QQ-plots: Poisson vs PLN."""
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -173,7 +174,7 @@ def plot_pit_qq_side_by_side(
         ax.set_ylim(-0.02, 1.02)
 
     fig.suptitle(
-        f"PIT QQ — {station_code} {station_name}\n{dt_label} (Checkins)",
+        f"PIT QQ — {station_code} {station_name}\n{dt_label} ({count_type.capitalize()})",
         fontsize=14, fontweight="bold",
     )
     plt.tight_layout()
@@ -400,6 +401,7 @@ def run_lgcp_gof(
             station_code, station_name, day_type,
             ks_pois, ks_pln,
             output_dir=output_dir,
+            count_type=count_type,
         )
 
     # ── Save CSV ──────────────────────────────────────────────────────────
@@ -434,7 +436,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="PIT-based GoF: Poisson (NHPP) vs Poisson-LogNormal (LGCP)"
     )
-    parser.add_argument("--count_type", default="checkins", choices=["checkins"])
+    parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
     parser.add_argument("--output_dir", default="src/workflow/results/lgcp_gof")
     parser.add_argument("--params", default="src/workflow/params.json")
     parser.add_argument("--stations", nargs="+", default=None)

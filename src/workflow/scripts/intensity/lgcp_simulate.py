@@ -360,7 +360,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--n_days", type=int, default=10,
                         help="Days to simulate per (station, day_type)")
-    parser.add_argument("--count_type", default="checkins", choices=["checkins"])
+    parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
     parser.add_argument("--output_dir", default="src/workflow/results/lgcp_simulate")
     parser.add_argument("--params", default="src/workflow/params.json")
     parser.add_argument("--stations", nargs="+", default=None)
