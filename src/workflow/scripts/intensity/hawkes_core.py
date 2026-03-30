@@ -140,33 +140,33 @@ def fit_hawkes(t, mu_base_t, M_base_T, T, init_params=None):
 def compute_compensator_tau(params, t, M_base_t):
     """
     Computes the transformed times tau_i = Lambda(t_i) for time-rescaling Goodness-of-Fit.
-    
+
+    O(N) implementation via the recursion:
+        B[i] = Σ_{j<i} exp(-β(t_i - t_j)) = exp(-β·Δt_i) · (B[i-1] + 1)
+    which is identical to compute_Ah(t, 1.0, beta).  The excitation integral
+    then collapses to:
+        Σ_{j<i} (α/β)(1 - exp(-β(t_i-t_j)))  =  (α/β) · (i - B[i])
+
     Args:
         params: [kappa, alpha, beta]
-        t: array of N event timestamps
-        M_base_t: array of N values, the integral of background intensity from 0 to each t_i.
-        
+        t: array of N event timestamps (sorted)
+        M_base_t: array of N values, integral of background intensity from 0 to each t_i.
+
     Returns:
-        tau: array of transformed times
+        tau: array of N transformed times
     """
     kappa, alpha, beta = params
     N = len(t)
-    tau = np.zeros(N)
-    
     if N == 0:
-        return tau
-        
-    for i in range(N):
-        bg = kappa * M_base_t[i]
-        # Sum of excitations from all j < i
-        if i > 0:
-            dt = t[i] - t[:i]
-            ex = (alpha / beta) * np.sum(1.0 - np.exp(-beta * dt))
-        else:
-            ex = 0.0
-            
-        tau[i] = bg + ex
-        
+        return np.zeros(0)
+
+    # B[i] = Σ_{j<i} exp(-β(t_i - t_j)) — reuse compute_Ah with jump=1
+    B = compute_Ah(t, 1.0, beta)
+
+    i_vals = np.arange(N, dtype=float)
+    ex = (alpha / beta) * (i_vals - B)
+
+    tau = kappa * M_base_t + ex
     return tau
 
 def simulate_hawkes_branching(params, profile, rng=None):

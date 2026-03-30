@@ -74,11 +74,21 @@ def generate_plots(df: pd.DataFrame, output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="src/workflow/results/hawkes_fit/hawkes_params_checkins.csv")
+    parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
+    parser.add_argument(
+        "--input",
+        default=None,
+        help="Path to hawkes_params CSV. Defaults to results/hawkes_fit/hawkes_params_{count_type}.csv",
+    )
     parser.add_argument("--output_dir", default="src/workflow/results/hawkes_fit")
     args = parser.parse_args()
-    
-    df = summarize_results(Path(args.input))
+
+    input_path = (
+        Path(args.input)
+        if args.input
+        else Path(f"src/workflow/results/hawkes_fit/hawkes_params_{args.count_type}.csv")
+    )
+    df = summarize_results(input_path)
     if df is not None:
         generate_plots(df, Path(args.output_dir))
 

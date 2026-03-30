@@ -96,6 +96,7 @@ def _plot_simulation_comparison(
 
 def run_hawkes_simulate(
     n_days: int = 10,
+    count_type: str = "checkins",
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
@@ -119,7 +120,7 @@ def run_hawkes_simulate(
     station_codes = [sc for sc in station_codes if sc in available] if station_codes else available
     
     if fit_dir is None: fit_dir = Path("src/workflow/results/hawkes_fit")
-    fit_df = pd.read_csv(fit_dir / "hawkes_params_checkins.csv")
+    fit_df = pd.read_csv(fit_dir / f"hawkes_params_{count_type}.csv")
     fit_df["station_code"] = fit_df["station_code"].astype(str).str.zfill(5)
     
     # We take the median parameters over all days to simulate a "typical" profile
@@ -127,13 +128,14 @@ def run_hawkes_simulate(
         "kappa": "median", "alpha": "median", "beta": "median"
     }).reset_index()
     
-    print("📊 Loading raw count data to build background profiles...")
+    print(f"📊 Loading raw {count_type} count data to build background profiles...")
     data = load_data(
         station_codes=station_codes,
-        include_checkins=True, include_checkouts=False,
+        include_checkins=(count_type == "checkins"),
+        include_checkouts=(count_type == "checkouts"),
         time_min=time_min, time_max=time_max, time_step=time_step,
     )
-    df = data["checkins"]
+    df = data[count_type]
     time_cols = sorted([c for c in df.columns if c.startswith("t_")], key=lambda c: int(c.split("_")[1]))
     K = len(time_cols)
     T_total = K * dt_sec
@@ -189,10 +191,13 @@ def run_hawkes_simulate(
             # Subdivide into bins
             counts, _ = np.histogram(arrival_seconds, bins=K, range=(0, T_total))
             
+            # Convert seconds-from-window-start to absolute datetime
+            start_sec_midnight = int(time_hours[0] * 3600)
             for t_sec in arrival_seconds:
-                h = int(time_hours[0] + t_sec // 3600)
-                m = int((t_sec % 3600) // 60)
-                s = int(t_sec % 60)
+                abs_sec = int(t_sec) + start_sec_midnight
+                h = abs_sec // 3600
+                m = (abs_sec % 3600) // 60
+                s = abs_sec % 60
                 event_dt = sim_date.replace(hour=h, minute=m, second=s)
                 
                 all_events.append({
@@ -213,20 +218,21 @@ def run_hawkes_simulate(
             all_binned.append(b_row)
 
     events_df = pd.DataFrame(all_events)
-    events_csv = output_dir / "hawkes_simulated_events_checkins.csv"
+    events_csv = output_dir / f"hawkes_simulated_events_{count_type}.csv"
     events_df.to_csv(events_csv, index=False)
     print(f"\nSaved {len(events_df)} simulated events: {events_csv}")
 
     binned_df = pd.DataFrame(all_binned)
-    binned_csv = output_dir / "hawkes_simulated_binned_checkins.csv"
+    binned_csv = output_dir / f"hawkes_simulated_binned_{count_type}.csv"
     binned_df.to_csv(binned_csv, index=False)
     print(f"Saved {len(binned_df)} simulated day-profiles: {binned_csv}")
     
-    _plot_simulation_comparison(df, binned_df, time_cols, time_hours, output_dir, "checkins")
+    _plot_simulation_comparison(df, binned_df, time_cols, time_hours, output_dir, count_type)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_days", type=int, default=10)
+    parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
     parser.add_argument("--output_dir", default="src/workflow/results/hawkes_simulate")
     parser.add_argument("--params", default="src/workflow/params.json")
     parser.add_argument("--stations", nargs="+", default=None)
@@ -238,6 +244,7 @@ if __name__ == "__main__":
 
     run_hawkes_simulate(
         n_days=args.n_days,
+        count_type=args.count_type,
         output_dir=Path(args.output_dir),
         params_path=Path(args.params),
         station_codes=args.stations,

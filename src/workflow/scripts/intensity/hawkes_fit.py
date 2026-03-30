@@ -1,5 +1,5 @@
 r"""
-Fitts the continuous-time Hawkes process to exact check-in timestamps.
+Fits the continuous-time Hawkes process to exact event timestamps (check-ins or check-outs).
 Uses the 15-minute aggregate profiles as the baseline intensity $\mu_{base}(t)$.
 """
 
@@ -14,6 +14,7 @@ from scipy import stats
 
 from src.workflow.data_loader import load_data, load_persisted_data
 from src.workflow.scripts.intensity.hawkes_core import fit_hawkes, compute_compensator_tau
+from src.workflow.data_reader import load_csv_file
 
 def compute_mu_base_profile(station_df: pd.DataFrame, time_min: int, time_max: int, time_step: int):
     """
@@ -104,7 +105,12 @@ def p_value_from_tau(tau):
     res = stats.kstest(diffs, 'expon', args=(0, 1))
     return res.pvalue
 
-def run_hawkes_fit(params_path: Path, station_codes_arg: Optional[list[str]] = None, date_percentage: float = 1.0):
+def run_hawkes_fit(
+    params_path: Path,
+    station_codes_arg: Optional[list[str]] = None,
+    date_percentage: float = 1.0,
+    count_type: str = "checkins",
+):
     with open(params_path) as f:
         params = json.load(f)
         
@@ -138,17 +144,17 @@ def run_hawkes_fit(params_path: Path, station_codes_arg: Optional[list[str]] = N
         station_codes = available_station_codes
     
     # 1. Load 15-min data to get the base profiles
-    print("📊 Loading aggregated data to build baseline profiles...")
+    print(f"📊 Loading aggregated {count_type} data to build baseline profiles...")
     data_15min = load_data(
         dates=sampled_dates,
         station_codes=station_codes,
-        include_checkins=True,
-        include_checkouts=False,
+        include_checkins=(count_type == "checkins"),
+        include_checkouts=(count_type == "checkouts"),
         time_min=time_min,
         time_max=time_max,
         time_step=time_step
     )
-    df_15min = data_15min["checkins"]
+    df_15min = data_15min[count_type]
     
     # Map from station_code -> profile dictionary
     station_profiles = {}
@@ -167,9 +173,13 @@ def run_hawkes_fit(params_path: Path, station_codes_arg: Optional[list[str]] = N
     results = []
     
     # 2. Iterate through daily raw CSVs
-    raw_dir = Path("data/check_ins/daily")
-    
-    print("🔍 Fitting Hawkes processes to exact timestamps...")
+    raw_dir = (
+        Path("data/check_ins/daily")
+        if count_type == "checkins"
+        else Path("data/check_outs/daily")
+    )
+
+    print(f"🔍 Fitting Hawkes processes to exact {count_type} timestamps...")
     for date_str in sampled_dates:
         csv_path = raw_dir / f"{date_str}.csv"
         if not csv_path.exists():
@@ -180,12 +190,18 @@ def run_hawkes_fit(params_path: Path, station_codes_arg: Optional[list[str]] = N
         
         print(f"   Processing {date_str} ({day_type})...")
         try:
-            # Only read the required columns to save memory
-            df_raw = pd.read_csv(csv_path, usecols=["Fecha_Transaccion", "Estacion_Parada"])
-            # Parse datetime efficiently
-            df_raw["dt"] = pd.to_datetime(df_raw["Fecha_Transaccion"], format="%Y-%m-%d %H:%M:%S")
-            # Extract total seconds in day
-            df_raw["sec"] = df_raw["dt"].dt.hour * 3600 + df_raw["dt"].dt.minute * 60 + df_raw["dt"].dt.second
+            df_raw = load_csv_file(
+                csv_path,
+                station_codes=station_codes,
+                count_type=count_type,
+                include_time_components=True,
+            )
+            # Compute seconds-from-midnight for each event
+            df_raw["sec"] = (
+                df_raw["hour"] * 3600
+                + df_raw["minute"] * 60
+                + df_raw["second"]
+            )
         except Exception as e:
             print(f"❌ Failed to read {csv_path}: {e}")
             continue
@@ -196,10 +212,8 @@ def run_hawkes_fit(params_path: Path, station_codes_arg: Optional[list[str]] = N
                 
             profile = station_profiles[sc][day_type]
             
-            # Filter rows for this station
-            # 'Estacion_Parada' has format "(05000) Portal Américas"
-            st_mask = df_raw["Estacion_Parada"].str.startswith(f"({sc})")
-            st_data = df_raw[st_mask].copy()
+            # Filter rows for this station (already filtered by load_csv_file, but check anyway)
+            st_data = df_raw[df_raw["station_code"] == sc].copy()
             
             if len(st_data) < 10:
                 continue # not enough data to fit
@@ -248,7 +262,7 @@ def run_hawkes_fit(params_path: Path, station_codes_arg: Optional[list[str]] = N
     results_df = pd.DataFrame(results)
     out_dir = Path("src/workflow/results/hawkes_fit")
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_csv = out_dir / "hawkes_params_checkins.csv"
+    out_csv = out_dir / f"hawkes_params_{count_type}.csv"
     results_df.to_csv(out_csv, index=False)
     print(f"\n✅ Completed Hawkes process fits. Saved {len(results_df)} station-day records to {out_csv}")
     
@@ -257,5 +271,11 @@ if __name__ == "__main__":
     parser.add_argument("--params", default="src/workflow/params.json")
     parser.add_argument("--stations", type=str, nargs="+", help="Optional list of station codes to analyze")
     parser.add_argument("--date_percentage", type=float, default=1.0, help="Fraction of dates to sample for faster testing")
+    parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
     args = parser.parse_args()
-    run_hawkes_fit(Path(args.params), station_codes_arg=args.stations, date_percentage=args.date_percentage)
+    run_hawkes_fit(
+        Path(args.params),
+        station_codes_arg=args.stations,
+        date_percentage=args.date_percentage,
+        count_type=args.count_type,
+    )
