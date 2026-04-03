@@ -1,6 +1,16 @@
 r"""
 Fits the continuous-time Hawkes process to exact event timestamps (check-ins or check-outs).
 Uses the 15-minute aggregate profiles as the baseline intensity $\mu_{base}(t)$.
+
+Note on checkouts:
+    Checkout data is recorded as aggregate counts per 15-minute bin (Salidas_S),
+    not as individual event timestamps.  To enable Hawkes fitting, each count is
+    expanded into individual events and a uniform jitter of U(0, bin_width) is
+    added to spread events within their bin.  This is a pseudo-continuous
+    approximation — it does NOT recover the real inter-event structure, and the
+    fitted excitation parameters should be interpreted with caution.  The LGCP
+    pipeline (which models binned counts directly) is the recommended approach
+    for checkout intensity analysis.
 """
 
 import json
@@ -110,6 +120,7 @@ def run_hawkes_fit(
     station_codes_arg: Optional[list[str]] = None,
     date_percentage: float = 1.0,
     count_type: str = "checkins",
+    seed: int = 42,
 ):
     with open(params_path) as f:
         params = json.load(f)
@@ -171,6 +182,7 @@ def run_hawkes_fit(
         date_to_daytype[date_str] = row['date_type']
 
     results = []
+    rng = np.random.default_rng(seed)
     
     # 2. Iterate through daily raw CSVs
     raw_dir = (
@@ -179,7 +191,16 @@ def run_hawkes_fit(
         else Path("data/check_outs/daily")
     )
 
-    print(f"🔍 Fitting Hawkes processes to exact {count_type} timestamps...")
+    is_checkout = count_type == "checkouts"
+    if is_checkout:
+        print(
+            "⚠️  Checkout data is 15-min aggregated.  Applying uniform jitter "
+            "U(0, bin_width) to spread events within each bin.\n"
+            "    This is a pseudo-continuous approximation — fitted excitation "
+            "parameters may NOT reflect real self-excitation structure."
+        )
+
+    print(f"🔍 Fitting Hawkes processes to {'jittered ' if is_checkout else ''}{count_type} timestamps...")
     for date_str in sampled_dates:
         csv_path = raw_dir / f"{date_str}.csv"
         if not csv_path.exists():
@@ -225,6 +246,21 @@ def run_hawkes_fit(
             # shift to start at 0
             t_shifted = t_sec - profile["start_sec"]
             T_total = profile["T_total"]
+
+            # ── Checkout jitter ────────────────────────────────────────────
+            # Checkout timestamps sit on 15-min boundaries (all events in a
+            # bin share the exact same second).  Add U(0, bin_width) jitter
+            # to produce a pseudo-continuous stream.  This does NOT recover
+            # the true inter-arrival structure — it merely prevents the
+            # degenerate dt=0 clusters that otherwise cause the optimizer
+            # to push α,β to extreme values.
+            if is_checkout:
+                bin_width_sec = profile["dt_sec"]  # 900 s for 15-min bins
+                jitter = rng.uniform(0.0, bin_width_sec, size=len(t_shifted))
+                t_shifted = t_shifted + jitter
+                # Clamp to [0, T_total] and re-sort
+                t_shifted = np.clip(t_shifted, 0.0, T_total)
+                t_shifted.sort()
             
             mu_t, M_t = get_mu_values_for_timestamps(t_shifted, profile)
             
