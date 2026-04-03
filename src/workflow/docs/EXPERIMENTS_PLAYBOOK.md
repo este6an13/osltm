@@ -362,14 +362,14 @@ Modeling event dependencies with a self-exciting point process.
 
 ```bash
 # Fit Hawkes process for a single station with 10% date sample
-uv run python -m src.workflow.scripts.intensity.hawkes_fit \
+uv run python -m src.workflow.scripts.models.hawkes.step1_fit \
   --stations 03000 --date_percentage 0.1
 
 # Run diagnostics for all fitted Hawkes models (no --stations needed)
-uv run python -m src.workflow.scripts.intensity.hawkes_diagnostics
+uv run python -m src.workflow.scripts.models.hawkes.step2_diagnostics
 
 # Simulate 10 synthetic baseline days using the median fitted parameters
-uv run python -m src.workflow.scripts.intensity.hawkes_simulate \
+uv run python -m src.workflow.scripts.models.hawkes.step3_simulate \
   --stations 03000 --n_days 10
 ```
 
@@ -402,6 +402,6 @@ uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins --statio
 uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots --stations 03000 --date_percentage 0.1
 
 # Hawkes modeling
-uv run python -m src.workflow.scripts.intensity.hawkes_fit --stations 03000 --date_percentage 0.1
-uv run python -m src.workflow.scripts.intensity.hawkes_diagnostics
+uv run python -m src.workflow.scripts.models.hawkes.step1_fit --stations 03000 --date_percentage 0.1
+uv run python -m src.workflow.scripts.models.hawkes.step2_diagnostics
 ```

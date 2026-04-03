@@ -34,7 +34,7 @@ uv run python -m src.workflow.scripts.profiles.cluster_stations_shape_scale --st
 uv run python -m src.workflow.scripts.intensity.fano_factor_analysis --stations 03000 07112 06000 40000 02205 09121
 uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
 uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
-uv run python -m src.workflow.scripts.intensity.hawkes_fit --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
+uv run python -m src.workflow.scripts.models.hawkes.step1_fit --stations 03000 07112 06000 40000 02205 09121 --date_percentage 0.1
 ```
 
 ---
@@ -177,7 +177,7 @@ uv run python -m src.workflow.scripts.intensity.negbin_fit \
 
 ```bash
 # Fit GP kernels (SE + Matérn 3/2) to log-residual covariance + Gaussianity validation
-uv run python -m src.workflow.scripts.intensity.lgcp_twostage \
+uv run python -m src.workflow.scripts.models.lgcp.step1_twostage \
   --stations 03000 07112 06000 40000 02205 09121
 ```
 
@@ -194,7 +194,7 @@ uv run python -m src.workflow.scripts.intensity.lgcp_twostage \
 
 ```bash
 # Posterior intensity with credible bands + predictive Fano factors
-uv run python -m src.workflow.scripts.intensity.lgcp_bayesian \
+uv run python -m src.workflow.scripts.models.lgcp.step2_bayesian \
   --stations 03000 07112 06000 40000 02205 09121
 ```
 
@@ -212,7 +212,7 @@ uv run python -m src.workflow.scripts.intensity.lgcp_bayesian \
 
 ```bash
 # Compare LGCP vs NHPP via time-rescaling KS test
-uv run python -m src.workflow.scripts.intensity.lgcp_gof \
+uv run python -m src.workflow.scripts.models.lgcp.step3_gof \
   --stations 03000 07112 06000 02205 09121
 ```
 
@@ -229,12 +229,12 @@ uv run python -m src.workflow.scripts.intensity.lgcp_gof \
 
 ```bash
 # Fit continuous-time Hawkes process and generate branching ratio diagnostics
-uv run python -m src.workflow.scripts.intensity.hawkes_fit \
+uv run python -m src.workflow.scripts.models.hawkes.step1_fit \
   --stations 03000 07112 06000 02205 09121 --date_percentage 0.1
-uv run python -m src.workflow.scripts.intensity.hawkes_diagnostics
+uv run python -m src.workflow.scripts.models.hawkes.step2_diagnostics
 
 # Simulate synthetic exact arrivals and aggregate 15-minute counts
-uv run python -m src.workflow.scripts.intensity.hawkes_simulate \
+uv run python -m src.workflow.scripts.models.hawkes.step3_simulate \
   --stations 03000 07112 06000 02205 09121 --n_days 5
 ```
 

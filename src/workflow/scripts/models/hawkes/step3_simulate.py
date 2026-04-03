@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from src.workflow.data_loader import load_data, load_persisted_data
-from src.workflow.scripts.intensity.hawkes_core import simulate_hawkes_branching
+from src.workflow.scripts.models.hawkes.core import simulate_hawkes_branching
 
 DATE_TYPE_LABELS = {"WD": "Weekday", "SA": "Saturday", "SU": "Sunday", "HO": "Holiday"}
 

@@ -23,7 +23,7 @@ import pandas as pd
 from scipy import stats
 
 from src.workflow.data_loader import load_data, load_persisted_data
-from src.workflow.scripts.intensity.hawkes_core import fit_hawkes, compute_compensator_tau
+from src.workflow.scripts.models.hawkes.core import fit_hawkes, compute_compensator_tau
 from src.workflow.data_reader import load_csv_file
 
 def compute_mu_base_profile(station_df: pd.DataFrame, time_min: int, time_max: int, time_step: int):
