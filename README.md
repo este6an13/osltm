@@ -30,7 +30,11 @@ osltm/
 │   │   │   └── step4_populate_counts.py
 │   │   ├── scripts/                 # Analysis scripts
 │   │   │   ├── profiles/            # 9 profile analysis scripts
-│   │   │   └── intensity/           # 3 intensity analysis scripts
+│   │   │   ├── intensity/           # 3 intensity analysis scripts
+│   │   │   └── models/              # Fitted model pipelines
+│   │   │       ├── lgcp/            # Log-Gaussian Cox Process (4 steps)
+│   │   │       ├── hawkes/          # Hawkes self-exciting process (3 steps + core)
+│   │   │       └── simulation_comparison.py
 │   │   ├── utils/
 │   │   │   └── drop_unused_columns.py
 │   │   ├── data/                    # Persisted sampled dates & stations
@@ -125,6 +129,32 @@ uv run python -m src.workflow.data_loader
 | `fano_factor_analysis` | Fano factor (Var/Mean) across days per time bin |
 | `fano_factor_within_bins` | Fano factor within bins using sub-minute resolution |
 
+### Models (`scripts/models/`)
+
+#### LGCP — Log-Gaussian Cox Process (`models/lgcp/`)
+
+| Step | Script | Purpose |
+|------|--------|---------|
+| 1 | `step1_twostage` | Fit GP kernels (SE + Matérn 3/2) to log-residual covariance |
+| 2 | `step2_bayesian` | Full Bayesian LGCP posterior via Laplace approximation |
+| 3 | `step3_gof` | Goodness-of-fit: LGCP vs NHPP via time-rescaling KS test |
+| 4 | `step4_simulate` | Simulate synthetic arrivals and aggregate to 15-min counts |
+
+#### Hawkes — Self-Exciting Point Process (`models/hawkes/`)
+
+| Step | Script | Purpose |
+|------|--------|---------|
+| — | `core` | Math engine: fitting, compensator, branching simulation |
+| 1 | `step1_fit` | Fit continuous-time Hawkes to exact timestamps |
+| 2 | `step2_diagnostics` | Branching ratio boxplots and GOF assessment |
+| 3 | `step3_simulate` | Simulate raw and binned synthetic traffic |
+
+> **Note on checkouts:** Checkout data is 15-min aggregated. The Hawkes pipeline applies uniform jitter to enable fitting, but this is a pseudo-continuous approximation — LGCP is recommended for checkout analysis.
+
+#### Cross-Model Comparison (`models/simulation_comparison.py`)
+
+Computes MAE, RMSE, MAPE, Pearson r, total-count ratio, Wasserstein distance, and ±2σ coverage for each (model, count_type, station, day_type) combination.
+
 ### Running Analysis Scripts
 
 ```bash
@@ -137,6 +167,20 @@ uv run python -m src.workflow.scripts.profiles.mean_envelope_plots --stations 03
 uv run python -m src.workflow.scripts.intensity.fano_factor_analysis --stations 03000
 uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins --stations 03000 --date_percentage 0.1
 uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots --stations 03000 --date_percentage 0.1
+
+# LGCP pipeline
+uv run python -m src.workflow.scripts.models.lgcp.step1_twostage --stations 03000
+uv run python -m src.workflow.scripts.models.lgcp.step2_bayesian --stations 03000
+uv run python -m src.workflow.scripts.models.lgcp.step3_gof --stations 03000
+uv run python -m src.workflow.scripts.models.lgcp.step4_simulate --stations 03000
+
+# Hawkes pipeline
+uv run python -m src.workflow.scripts.models.hawkes.step1_fit --stations 03000 --date_percentage 0.1
+uv run python -m src.workflow.scripts.models.hawkes.step2_diagnostics
+uv run python -m src.workflow.scripts.models.hawkes.step3_simulate --stations 03000 --n_days 10
+
+# Cross-model comparison
+uv run python -m src.workflow.scripts.models.simulation_comparison
 ```
 
 All scripts accept `--stations` to limit computation to specific stations and `--output_dir` to control where plots are saved. The `--date_percentage` flag (intensity scripts) samples a fraction of dates per day type for faster experimentation.
