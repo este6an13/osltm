@@ -406,6 +406,7 @@ def compute_mean_and_envelope_per_station(
 def compute_median_and_envelope_across_stations(
     station_envelopes: dict[str, dict[str, dict[str, dict[str, float]]]],
     time_cols: list[str],
+    day_types_to_analyze: Optional[list[str]] = None,
 ) -> dict[str, dict[str, np.ndarray]]:
     """
     Aggregate mean and envelope across stations by taking median of means and aggregating envelopes.
@@ -414,14 +415,16 @@ def compute_median_and_envelope_across_stations(
         station_envelopes: Dictionary from compute_mean_and_envelope_per_station
             Format: {station_code: {day_type: {time_col: {"mean": float, "lower": float, "upper": float}}}}
         time_cols: List of time column names (sorted)
+        day_types_to_analyze: Optional list of day types to include. If None, uses all.
 
     Returns:
         Dictionary: {day_type: {"median": array, "lower": array, "upper": array}}
         where median is the median of means across stations, and lower/upper are aggregated envelopes
     """
     results = {}
+    day_types = day_types_to_analyze if day_types_to_analyze is not None else DATE_TYPE_ORDER
 
-    for day_type in DATE_TYPE_ORDER:
+    for day_type in day_types:
         # Collect means and envelopes for each time bin across all stations
         means_by_bin = {time_col: [] for time_col in time_cols}
         lowers_by_bin = {time_col: [] for time_col in time_cols}
@@ -484,6 +487,7 @@ def plot_fano_factors(
     envelope_type: Literal["std", "quantile"] = "quantile",
     quantile_low: float = 0.25,
     quantile_high: float = 0.75,
+    day_types_to_analyze: Optional[list[str]] = None,
 ) -> None:
     """
     Plot Fano factors with median and envelope (std or quantile).
@@ -496,12 +500,14 @@ def plot_fano_factors(
         envelope_type: Type of envelope used ("std" or "quantile")
         quantile_low: Lower quantile used (for label)
         quantile_high: Upper quantile used (for label)
+        day_types_to_analyze: Optional list of day types to plot. If None, uses all.
     """
     # Convert time columns to hours for x-axis
     time_hours = np.array([time_column_to_hours(col) for col in time_cols])
 
     # Create figure with subplots for each day type
-    n_daytypes = len(DATE_TYPE_ORDER)
+    day_types = day_types_to_analyze if day_types_to_analyze is not None else DATE_TYPE_ORDER
+    n_daytypes = len(day_types)
     fig, axes = plt.subplots(
         n_daytypes, 1, figsize=(12, 4 * n_daytypes), sharex=True, sharey=True
     )
@@ -509,7 +515,7 @@ def plot_fano_factors(
     if n_daytypes == 1:
         axes = [axes]
 
-    for idx, day_type in enumerate(DATE_TYPE_ORDER):
+    for idx, day_type in enumerate(day_types):
         ax = axes[idx]
 
         if day_type not in median_envelope:
@@ -625,6 +631,7 @@ def run_fano_factor_within_bins_analysis(
     envelope_type: Literal["std", "quantile"] = "quantile",
     quantile_low: float = 0.25,
     quantile_high: float = 0.75,
+    date_type: Optional[list[str]] = None,
 ) -> dict:
     """
     Run Fano factor within bins analysis.
@@ -645,6 +652,9 @@ def run_fano_factor_within_bins_analysis(
         envelope_type: "std" for ±1 std band, "quantile" for quantile envelope (default: quantile)
         quantile_low: Lower quantile (default: 0.25 for 25th percentile)
         quantile_high: Upper quantile (default: 0.75 for 75th percentile)
+        date_type: Optional list of day types to analyze (e.g., ["WD", "SA"]).
+            Valid values: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday).
+            If None, uses all day types.
 
     Returns:
         Dictionary with Fano factors per station, day type, and time bin
@@ -676,6 +686,29 @@ def run_fano_factor_within_bins_analysis(
     if not sampled_dates:
         raise ValueError("No sampled dates found. Run workflow steps 1-4 first.")
 
+    # Determine which day types to analyze
+    day_types_to_analyze = DATE_TYPE_ORDER
+    if date_type is not None:
+        # Validate provided day types
+        invalid = [dt for dt in date_type if dt not in DATE_TYPE_ORDER]
+        if invalid:
+            raise ValueError(
+                f"Invalid date_type values: {invalid}. "
+                f"Valid values are: {DATE_TYPE_ORDER}"
+            )
+        day_types_to_analyze = [dt for dt in DATE_TYPE_ORDER if dt in date_type]
+        labels = [DATE_TYPE_LABELS.get(dt, dt) for dt in day_types_to_analyze]
+        print(f"📅 Filtering to day types: {', '.join(labels)}")
+
+    # Filter sampled dates to only include the requested day types
+    if date_type is not None:
+        original_count = len(sampled_dates)
+        sampled_dates = [
+            d for d in sampled_dates
+            if get_day_type(datetime.strptime(d, "%Y%m%d").date()) in day_types_to_analyze
+        ]
+        print(f"   {len(sampled_dates)}/{original_count} dates match selected day types")
+
     # Sample dates by day type if percentage is specified
     seed = params.get("seed", 42)
     if date_percentage is not None:
@@ -694,7 +727,7 @@ def run_fano_factor_within_bins_analysis(
             day_type = get_day_type(date_obj)
             dates_by_daytype[day_type].append(date_str)
 
-        for day_type in DATE_TYPE_ORDER:
+        for day_type in day_types_to_analyze:
             if day_type in dates_by_daytype:
                 count = len(dates_by_daytype[day_type])
                 print(f"   {DATE_TYPE_LABELS.get(day_type, day_type)}: {count} dates")
@@ -820,6 +853,7 @@ def run_fano_factor_within_bins_analysis(
     median_envelope = compute_median_and_envelope_across_stations(
         station_envelopes,
         time_cols,
+        day_types_to_analyze=day_types_to_analyze,
     )
 
     # Generate plots
@@ -838,6 +872,7 @@ def run_fano_factor_within_bins_analysis(
         envelope_type=envelope_type,
         quantile_low=quantile_low,
         quantile_high=quantile_high,
+        day_types_to_analyze=day_types_to_analyze,
     )
 
     # Save median envelope CSV
@@ -941,6 +976,15 @@ if __name__ == "__main__":
         default=0.75,
         help="Upper quantile for quantile envelope (default: 0.75)",
     )
+    parser.add_argument(
+        "--date_type",
+        type=str,
+        nargs="+",
+        choices=["WD", "SA", "SU", "HO"],
+        default=None,
+        help="Day types to analyze: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday). "
+        "If not specified, all day types are analyzed. (default: all)",
+    )
 
     args = parser.parse_args()
 
@@ -956,6 +1000,7 @@ if __name__ == "__main__":
         envelope_type=args.envelope_type,
         quantile_low=args.quantile_low,
         quantile_high=args.quantile_high,
+        date_type=args.date_type,
     )
 
     print(f"\n📊 Generated Fano factor within bins analysis for {args.count_type}")

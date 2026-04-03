@@ -406,6 +406,7 @@ def run_time_rescaling_analysis(
     data_dir: Optional[Path] = None,
     time_window_minutes: float = 15.0,
     date_percentage: Optional[float] = None,
+    date_type: Optional[list[str]] = None,
 ) -> dict:
     """
     Run time rescaling theorem analysis for checkins.
@@ -422,6 +423,9 @@ def run_time_rescaling_analysis(
         time_window_minutes: Length of time window in minutes (default: 15)
         date_percentage: Optional percentage of dates to use per day type (0.0 to 1.0).
             If None, uses all dates. Uses seed from params.json for reproducibility.
+        date_type: Optional list of day types to analyze (e.g., ["WD", "SA"]).
+            Valid values: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday).
+            If None, uses all day types.
 
     Returns:
         Dictionary with results for each station and day type
@@ -452,6 +456,29 @@ def run_time_rescaling_analysis(
     if not sampled_dates:
         raise ValueError("No sampled dates found. Run workflow steps 1-4 first.")
 
+    # Determine which day types to analyze
+    day_types_to_analyze = DATE_TYPE_ORDER
+    if date_type is not None:
+        # Validate provided day types
+        invalid = [dt for dt in date_type if dt not in DATE_TYPE_ORDER]
+        if invalid:
+            raise ValueError(
+                f"Invalid date_type values: {invalid}. "
+                f"Valid values are: {DATE_TYPE_ORDER}"
+            )
+        day_types_to_analyze = [dt for dt in DATE_TYPE_ORDER if dt in date_type]
+        labels = [DATE_TYPE_LABELS.get(dt, dt) for dt in day_types_to_analyze]
+        print(f"📅 Filtering to day types: {', '.join(labels)}")
+
+    # Filter sampled dates to only include the requested day types
+    if date_type is not None:
+        original_count = len(sampled_dates)
+        sampled_dates = [
+            d for d in sampled_dates
+            if get_day_type(datetime.strptime(d, "%Y%m%d").date()) in day_types_to_analyze
+        ]
+        print(f"   {len(sampled_dates)}/{original_count} dates match selected day types")
+
     # Sample dates by day type if percentage is specified
     seed = params.get("seed", 42)
     if date_percentage is not None:
@@ -470,7 +497,7 @@ def run_time_rescaling_analysis(
             day_type = get_day_type(date_obj)
             dates_by_daytype[day_type].append(date_str)
 
-        for day_type in DATE_TYPE_ORDER:
+        for day_type in day_types_to_analyze:
             if day_type in dates_by_daytype:
                 count = len(dates_by_daytype[day_type])
                 print(f"   {DATE_TYPE_LABELS.get(day_type, day_type)}: {count} dates")
@@ -623,7 +650,7 @@ def run_time_rescaling_analysis(
 
         results[station_code] = {}
 
-        for day_type in DATE_TYPE_ORDER:
+        for day_type in day_types_to_analyze:
             if day_type not in uniform_values[station_code]:
                 continue
 
@@ -716,6 +743,15 @@ if __name__ == "__main__":
         default=None,
         help="Percentage of dates to use per day type (0.0 to 1.0). If None, uses all dates. (default: None)",
     )
+    parser.add_argument(
+        "--date_type",
+        type=str,
+        nargs="+",
+        choices=["WD", "SA", "SU", "HO"],
+        default=None,
+        help="Day types to analyze: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday). "
+        "If not specified, all day types are analyzed. (default: all)",
+    )
 
     args = parser.parse_args()
 
@@ -726,6 +762,7 @@ if __name__ == "__main__":
         data_dir=Path(args.data_dir) if args.data_dir else None,
         time_window_minutes=args.time_window_minutes,
         date_percentage=args.date_percentage,
+        date_type=args.date_type,
     )
 
     print(f"\n📊 Generated QQ-plots for {len(results)} stations")

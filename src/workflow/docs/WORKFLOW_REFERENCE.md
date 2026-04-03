@@ -317,6 +317,7 @@ uv run python -m src.workflow.scripts.intensity.time_rescaling_qq_plots \
 | `--data_dir` | `data/check_ins/daily` | CSV directory |
 | `--time_window_minutes` | `15.0` | Bin size for intensity estimation |
 | `--date_percentage` | all | Fraction of dates per day type (0.0–1.0). **Key performance knob.** |
+| `--date_type` | all | Day type filter (`WD SA SU HO`). Only process matching dates. |
 
 **Reasoning for `--date_percentage`:** Processing every raw CSV is expensive. This samples a fraction per day type to speed up experiments while keeping day-type balance.
 
@@ -362,6 +363,7 @@ uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins \
 | `--envelope_type` | `quantile` | `std` or `quantile` |
 | `--quantile_low` | `0.25` | Lower quantile |
 | `--quantile_high` | `0.75` | Upper quantile |
+| `--date_type` | all | Day type filter (`WD SA SU HO`). Only process matching dates. |
 
 ---
 
@@ -372,6 +374,7 @@ uv run python -m src.workflow.scripts.intensity.fano_factor_within_bins \
 | `--stations` | All analysis scripts | Limit to specific stations → faster iteration |
 | `--count_type` | All analysis scripts | Toggle between checkins and checkouts |
 | `--date_percentage` | Intensity scripts | Sample dates proportionally → faster experiments |
+| `--date_type` | Intensity scripts (`time_rescaling_qq_plots`, `fano_factor_within_bins`) | Focus on specific day types (WD, SA, SU, HO) |
 | `--day_type(s)` | Several profile scripts | Focus on specific day types (WD, SA, SU, HO) |
 | `--n_components` | FPCA scripts | Control dimensionality reduction depth |
 | `--n_clusters` | Clustering scripts | Set number of clusters |
