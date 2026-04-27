@@ -439,7 +439,7 @@ def run_lgcp_twostage(
     time_max = step4_params.get("time_max", 2300)
     time_step = step4_params.get("time_step", 15)
 
-    persistence_dir = Path(step4_params.get("persistence_dir", "src/workflow/data"))
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     if not sampled_dates:
         raise ValueError("No sampled dates found. Run workflow steps 1-4 first.")

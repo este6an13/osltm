@@ -1,43 +1,63 @@
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List, Dict, Any
-import json
-import os
 from src.ui.backend.services.runner import runner
 
-router = APIRouter()
+router = APIRouter(tags=["pipeline"])
 
-PARAMS_FILE = "d:/dequi/repositories/osltm/src/workflow/params.json"
+PARAMS_PATH = Path("src/workflow/params.json")
+DATA_BASE = Path("src/workflow/data")
+
 
 class PipelineRunRequest(BaseModel):
     steps: List[int]
-    params: Dict[str, Any]
+    params: Optional[Dict[str, Any]] = None
+
 
 @router.get("/params")
-def get_params():
-    if os.path.exists(PARAMS_FILE):
-        with open(PARAMS_FILE, "r") as f:
+async def get_params():
+    """Return current params.json contents."""
+    if PARAMS_PATH.exists():
+        with open(PARAMS_PATH) as f:
             return json.load(f)
     return {}
 
-@router.put("/params")
-def update_params(params: Dict[str, Any]):
-    with open(PARAMS_FILE, "w") as f:
-        json.dump(params, f, indent=4)
-    return {"status": "ok"}
+
+@router.post("/params")
+async def save_params(params: Dict[str, Any]):
+    """Overwrite params.json with new values."""
+    with open(PARAMS_PATH, "w") as f:
+        json.dump(params, f, indent=2)
+    return {"status": "saved"}
+
 
 @router.post("/run")
-async def run_pipeline(req: PipelineRunRequest):
-    # Optionally update params first
-    if req.params:
-        with open(PARAMS_FILE, "w") as f:
-            json.dump(req.params, f, indent=4)
-            
-    run_id = await runner.run_pipeline(req.steps)
-    return {"run_id": run_id}
+async def run_pipeline(request: PipelineRunRequest):
+    """Start the data pipeline and return run_id + pipeline_id."""
+    # Load current params.json and merge with any UI overrides
+    base_params: Dict[str, Any] = {}
+    if PARAMS_PATH.exists():
+        with open(PARAMS_PATH) as f:
+            base_params = json.load(f)
+    if request.params:
+        base_params.update(request.params)
 
-@router.get("/runs/{run_id}")
-def get_run_status(run_id: str):
-    if run_id in runner.runs:
-        return runner.runs[run_id]
-    return {"error": "not found"}
+    result = await runner.run_pipeline(steps=request.steps, params=base_params)
+    return result
+
+
+@router.get("/experiments")
+async def list_experiments():
+    """List all pipeline runs, newest first."""
+    return runner.list_pipeline_experiments()
+
+
+@router.get("/experiments/active")
+async def get_active_experiment():
+    """Return the most recent pipeline run."""
+    active = runner.get_active_pipeline()
+    if active is None:
+        return {"pipeline_id": None, "message": "No pipeline runs found"}
+    return active

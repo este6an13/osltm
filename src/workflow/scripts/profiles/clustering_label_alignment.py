@@ -642,14 +642,14 @@ if __name__ == "__main__":
         description="Cluster daily profiles and compare to day-type labels"
     )
     parser.add_argument(
-        "--count-type",
+        "--count_type",
         type=str,
         choices=["in", "out"],
         default="in",
         help="Type of counts to analyze (default: in)",
     )
     parser.add_argument(
-        "--n-clusters",
+        "--n_clusters",
         type=int,
         default=3,
         help="Number of clusters (default: 3)",
@@ -661,12 +661,12 @@ if __name__ == "__main__":
         help="Specific station codes to analyze (default: all)",
     )
     parser.add_argument(
-        "--output-dir",
+        "--output_dir",
         type=str,
         help="Output directory for results (default: src/workflow/results/clustering_results)",
     )
     parser.add_argument(
-        "--no-normalize",
+        "--no_normalize",
         action="store_true",
         help="Don't normalize profiles before clustering",
     )

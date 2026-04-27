@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Literal
 
 class ScriptParam(BaseModel):
     name: str
-    type: Literal["int", "float", "str", "bool", "station_list", "choice", "path", "flag", "date_percentage"]
+    type: Literal["int", "float", "str", "bool", "station_list", "choice", "multi_choice", "path", "flag", "date_percentage"]
     default: Any = None
     choices: Optional[List[Any]] = None
     required: bool = False
@@ -15,6 +15,8 @@ class ScriptDef(BaseModel):
     description: str
     category: str
     output_dir: str = ""
+    depends_on: str = ""    # output_dir of the upstream step this script reads from
+    input_arg: str = ""     # CLI flag used to pass the upstream path (e.g. --phase2_dir)
     params: List[ScriptParam]
 
 # Based on EXPERIMENTS_PLAYBOOK.md and WORKFLOW_REFERENCE.md
@@ -42,7 +44,7 @@ SCRIPTS = {
         output_dir="fpca_results",
         params=[
             ScriptParam(name="stations", type="station_list"),
-            ScriptParam(name="day_types", type="choice", choices=["WD", "SA", "SU", "HO"], description="Filter to specific day types. Can select multiple.", default="WD"),
+            ScriptParam(name="day_types", type="multi_choice", choices=["WD", "SA", "SU", "HO"], description="Filter to specific day types.", default=["WD"]),
             ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="n_components", type="int", default=3),
             ScriptParam(name="no_standardize", type="flag", default=False)
@@ -82,7 +84,7 @@ SCRIPTS = {
         output_dir="envelope_results",
         params=[
             ScriptParam(name="stations", type="station_list"),
-            ScriptParam(name="day_types", type="str", default="WD SA SU HO", description="Space-separated day types"),
+            ScriptParam(name="day_types", type="multi_choice", choices=["WD", "SA", "SU", "HO"], description="Day types to include", default=["WD", "SA", "SU", "HO"]),
             ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="envelope_type", type="choice", choices=["std", "quantile"], default="std"),
         ]
@@ -152,7 +154,7 @@ SCRIPTS = {
             ScriptParam(name="stations", type="station_list"),
             ScriptParam(name="time_window_minutes", type="float", default=15.0),
             ScriptParam(name="date_percentage", type="date_percentage", default=0.1, description="Fraction of dates to sample (speedup)"),
-            ScriptParam(name="date_type", type="str", default="", description="Space-separated list of day types, or empty for all"),
+            ScriptParam(name="date_type", type="multi_choice", choices=["WD", "SA", "SU", "HO"], description="Day types to include (empty = all)", default=["WD", "SA", "SU", "HO"]),
         ]
     ),
     "intensity/fano_factor_analysis": ScriptDef(
@@ -178,7 +180,7 @@ SCRIPTS = {
             ScriptParam(name="date_percentage", type="date_percentage", default=0.1),
             ScriptParam(name="time_step", type="str", default="15", description="Outer bin size"),
             ScriptParam(name="delta_minutes", type="str", default="1", description="Sub-bin size"),
-            ScriptParam(name="date_type", type="str", default=""),
+            ScriptParam(name="date_type", type="multi_choice", choices=["WD", "SA", "SU", "HO"], description="Day types to include (empty = all)", default=["WD", "SA", "SU", "HO"]),
         ]
     ),
     "intensity/negbin_fit": ScriptDef(
@@ -206,21 +208,30 @@ SCRIPTS = {
     "models/lgcp/step2_bayesian": ScriptDef(
         module="src.workflow.scripts.models.lgcp.step2_bayesian",
         name="LGCP - Step 2: Bayesian",
-        description="Full Bayesian LGCP via Laplace approximation.",
+        description="Full Bayesian LGCP via Laplace approximation. Requires Step 1 kernel params.",
         category="models/lgcp",
         output_dir="lgcp_bayesian",
+        depends_on="lgcp_twostage",
+        input_arg="--phase2_dir",
         params=[
             ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="min_days", type="int", default=10, description="Min replicate days per (station, day_type)"),
         ]
     ),
     "models/lgcp/step3_gof": ScriptDef(
         module="src.workflow.scripts.models.lgcp.step3_gof",
-        name="LGCP - Step 3: GOF",
-        description="Goodness of Fit comparison vs NHPP.",
+        name="LGCP - Step 3: Goodness of Fit",
+        description="PIT-based GoF comparison: Poisson (NHPP) vs LGCP. Requires Step 1 kernel params.",
         category="models/lgcp",
         output_dir="lgcp_gof",
+        depends_on="lgcp_twostage",
+        input_arg="--phase2_dir",
         params=[
             ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="min_days", type="int", default=5),
+            ScriptParam(name="n_mc", type="int", default=500, description="Monte Carlo samples for PLN CDF"),
         ]
     ),
     
@@ -239,19 +250,26 @@ SCRIPTS = {
     "models/hawkes/step2_diagnostics": ScriptDef(
         module="src.workflow.scripts.models.hawkes.step2_diagnostics",
         name="Hawkes - Step 2: Diagnostics",
-        description="Branching ratio diagnostics.",
+        description="Branching ratio diagnostics. Requires Step 1 fitted params CSV.",
         category="models/hawkes",
         output_dir="hawkes_fit",
-        params=[]
+        depends_on="hawkes_fit",
+        input_arg="--input",
+        params=[
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+        ]
     ),
     "models/hawkes/step3_simulate": ScriptDef(
         module="src.workflow.scripts.models.hawkes.step3_simulate",
         name="Hawkes - Step 3: Simulate",
-        description="Simulate synthetic process and aggregate counts.",
+        description="Simulate synthetic process and aggregate counts. Requires Step 1 fitted params.",
         category="models/hawkes",
         output_dir="hawkes_simulate",
+        depends_on="hawkes_fit",
+        input_arg="--fit_dir",
         params=[
             ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="n_days", type="int", default=5),
         ]
     ),

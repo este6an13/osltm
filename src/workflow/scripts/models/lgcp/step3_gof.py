@@ -272,7 +272,7 @@ def run_lgcp_gof(
     time_max = step4.get("time_max", 2300)
     time_step = step4.get("time_step", 15)
 
-    persistence_dir = Path(step4.get("persistence_dir", "src/workflow/data"))
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     if not sampled_dates:
         raise ValueError("No sampled dates. Run workflow steps 1-4 first.")

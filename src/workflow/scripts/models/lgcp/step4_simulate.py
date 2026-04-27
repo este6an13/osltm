@@ -142,7 +142,7 @@ def run_lgcp_simulate(
     time_step = step4.get("time_step", 15)
     bin_width_hours = time_step / 60.0
 
-    persistence_dir = Path(step4.get("persistence_dir", "src/workflow/data"))
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     if sampled_stations:
         available = [s["code"] for s in sampled_stations]

@@ -128,6 +128,14 @@ def run(params: dict[str, Any]) -> None:
     dates_df.to_csv(dates_file, index=False)
     print(f"💾 Saved {len(sampled_dates_str)} dates to {dates_file}")
 
+    # Write copy into pipeline subfolder if pipeline_id was injected by the UI runner
+    pipeline_id = params.get("pipeline_id")
+    if pipeline_id:
+        pipeline_dir = persistence_dir / pipeline_id
+        pipeline_dir.mkdir(parents=True, exist_ok=True)
+        dates_df.to_csv(pipeline_dir / "sampled_dates.csv", index=False)
+        print(f"💾 Pipeline dates saved to {pipeline_dir / 'sampled_dates.csv'}")
+
     print(f"✅ Sampled {len(sampled)} unique dates:")
     for d in sampled:
         day_type = get_day_type(d)

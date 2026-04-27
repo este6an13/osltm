@@ -465,8 +465,7 @@ def run_negbin_fit(
     time_step = step4_params.get("time_step", 15)
 
     # Load sampled dates and stations
-    persistence_dir = step4_params.get("persistence_dir", Path("src/workflow/data"))
-    persistence_dir = Path(persistence_dir)
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
 
     if not sampled_dates:

@@ -81,6 +81,7 @@ def main():
         help="Path to hawkes_params CSV. Defaults to results/hawkes_fit/hawkes_params_{count_type}.csv",
     )
     parser.add_argument("--output_dir", default="src/workflow/results/hawkes_fit")
+    parser.add_argument("--params", default=None, help="Path to pipeline params.json")
     args = parser.parse_args()
 
     input_path = (

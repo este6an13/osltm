@@ -114,7 +114,7 @@ def run_hawkes_simulate(
     
     dt_sec = time_step * 60.0
     
-    persistence_dir = Path(step4.get("persistence_dir", "src/workflow/data"))
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     available = [s["code"] for s in sampled_stations] if sampled_stations else []
     station_codes = [sc for sc in station_codes if sc in available] if station_codes else available

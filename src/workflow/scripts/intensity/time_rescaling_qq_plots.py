@@ -449,8 +449,7 @@ def run_time_rescaling_analysis(
         data_dir = Path(data_dir)
 
     # Load sampled dates and stations
-    persistence_dir = step4_params.get("persistence_dir", Path("src/workflow/data"))
-    persistence_dir = Path(persistence_dir)
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
 
     if not sampled_dates:

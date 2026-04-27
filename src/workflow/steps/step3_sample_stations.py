@@ -170,6 +170,14 @@ def run(params: dict[str, Any]) -> None:
     stations_df.to_csv(stations_file, index=False)
     print(f"💾 Saved {len(sampled_stations_list)} stations to {stations_file}")
 
+    # Write copy into pipeline subfolder if pipeline_id was injected by the UI runner
+    pipeline_id = params.get("pipeline_id")
+    if pipeline_id:
+        pipeline_dir = persistence_dir / pipeline_id
+        pipeline_dir.mkdir(parents=True, exist_ok=True)
+        stations_df.to_csv(pipeline_dir / "sampled_stations.csv", index=False)
+        print(f"💾 Pipeline stations saved to {pipeline_dir / 'sampled_stations.csv'}")
+
     print(f"\n🎯 Sampled {len(sampled_station_codes)} stations:")
     for station in sampled_stations_list:
         print(f"   {station['code']}: {station['name']}")
