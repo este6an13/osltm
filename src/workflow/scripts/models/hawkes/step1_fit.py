@@ -121,6 +121,7 @@ def run_hawkes_fit(
     date_percentage: float = 1.0,
     count_type: str = "checkins",
     seed: int = 42,
+    output_dir: Optional[Path] = None,
 ):
     with open(params_path) as f:
         params = json.load(f)
@@ -130,7 +131,7 @@ def run_hawkes_fit(
     time_max = step4_params.get("time_max", 2300)
     time_step = step4_params.get("time_step", 15)
     
-    persistence_dir = Path(step4_params.get("persistence_dir", "src/workflow/data"))
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     
     if not sampled_dates or not sampled_stations:
@@ -237,6 +238,7 @@ def run_hawkes_fit(
             st_data = df_raw[df_raw["station_code"] == sc].copy()
             
             if len(st_data) < 10:
+                print(f"      {sc} {date_str} skipped: not enough data ({len(st_data)})")
                 continue # not enough data to fit
                 
             # Filter by time bounds
@@ -264,6 +266,11 @@ def run_hawkes_fit(
             
             mu_t, M_t = get_mu_values_for_timestamps(t_shifted, profile)
             
+            # If mu_t has exact zeros (empirical bins with 0 counts where events actually occurred),
+            # the Hawkes log-likelihood evaluates to log(0), causing the optimizer to fail instantly.
+            # We add a tiny epsilon to ensure strict positivity.
+            mu_t = np.maximum(mu_t, 1e-6)
+
             # Fit Hawkes
             try:
                 fit_res = fit_hawkes(t_shifted, mu_t, 1.0, T_total)
@@ -273,7 +280,7 @@ def run_hawkes_fit(
                 continue
             
             if not fit_res['converged']:
-                continue
+                print(f"      {sc} {date_str} WARNING: optimizer did not converge ({fit_res['message']}), but keeping parameters.")
                 
             params = [fit_res['kappa'], fit_res['alpha'], fit_res['beta']]
             
@@ -296,7 +303,7 @@ def run_hawkes_fit(
             
     # Save results
     results_df = pd.DataFrame(results)
-    out_dir = Path("src/workflow/results/hawkes_fit")
+    out_dir = Path(output_dir) if output_dir else Path("src/workflow/results/hawkes_fit")
     out_dir.mkdir(parents=True, exist_ok=True)
     out_csv = out_dir / f"hawkes_params_{count_type}.csv"
     results_df.to_csv(out_csv, index=False)
@@ -308,10 +315,12 @@ if __name__ == "__main__":
     parser.add_argument("--stations", type=str, nargs="+", help="Optional list of station codes to analyze")
     parser.add_argument("--date_percentage", type=float, default=1.0, help="Fraction of dates to sample for faster testing")
     parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
+    parser.add_argument("--output_dir", type=str, default=None, help="Output directory")
     args = parser.parse_args()
     run_hawkes_fit(
         Path(args.params),
         station_codes_arg=args.stations,
         date_percentage=args.date_percentage,
         count_type=args.count_type,
+        output_dir=Path(args.output_dir) if args.output_dir else None,
     )

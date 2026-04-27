@@ -1,7 +1,14 @@
+import sys
+import asyncio
+
+# Windows requires ProactorEventLoop for subprocess support
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import warnings
 warnings.filterwarnings("ignore")
 
-import sys
+
 from pathlib import Path
 
 # Add project root to path

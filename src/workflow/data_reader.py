@@ -78,9 +78,13 @@ def load_csv_file(
             ].copy()
 
         # Extract station code and name
-        df[["station_code", "station_name"]] = df[station_col].apply(
-            lambda x: pd.Series(extract_station_info(x))
-        )
+        if df.empty:
+            df["station_code"] = ""
+            df["station_name"] = ""
+        else:
+            df[["station_code", "station_name"]] = df[station_col].apply(
+                lambda x: pd.Series(extract_station_info(x))
+            )
 
         # Filter by exact station code match (in case pattern matched multiple)
         if station_codes:
@@ -121,9 +125,13 @@ def load_csv_file(
             ].copy()
 
         # Extract station code and name
-        df[["station_code", "station_name"]] = df[station_col].apply(
-            lambda x: pd.Series(extract_station_info(x))
-        )
+        if df.empty:
+            df["station_code"] = ""
+            df["station_name"] = ""
+        else:
+            df[["station_code", "station_name"]] = df[station_col].apply(
+                lambda x: pd.Series(extract_station_info(x))
+            )
 
         # Filter by exact station code match
         if station_codes:

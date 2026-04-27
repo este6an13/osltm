@@ -50,10 +50,11 @@ def neg_loglik_hawkes(params, t, mu_base_t, M_base_T, T):
     """
     kappa, alpha, beta = params
     
-    # Enforce strict constraints logically to prevent math errors during optimizer exploration
-    if kappa <= 0 or alpha < 0 or beta <= 0 or alpha >= beta:
-        return 1e12
-        
+    # Force parameters to be strictly positive to avoid math domain errors
+    kappa = max(kappa, 1e-10)
+    alpha = max(alpha, 1e-10)
+    beta = max(beta, 1e-10)
+    
     N = len(t)
     if N == 0:
         return kappa * M_base_T
@@ -71,15 +72,19 @@ def neg_loglik_hawkes(params, t, mu_base_t, M_base_T, T):
     A = compute_Ah(t, alpha, beta)
     lambda_at_t = kappa * mu_base_t + A
     
-    # Avoid log(0) if intensity somehow becomes 0 or negative
-    if np.any(lambda_at_t <= 0):
-        return 1e12
+    # Ensure strict positivity robustly without destroying gradient completely
+    lambda_at_t = np.maximum(lambda_at_t, 1e-10)
         
     log_sum = np.sum(np.log(lambda_at_t))
     
     logL = log_sum - Lambda_T
     # We want to MINIMIZE negative logL
     return -logL
+
+def neg_loglik_hawkes_reparam(params, t, mu_base_t, M_base_T, T):
+    kappa, br, beta = params
+    alpha = br * beta
+    return neg_loglik_hawkes([kappa, alpha, beta], t, mu_base_t, M_base_T, T)
 
 def fit_hawkes(t, mu_base_t, M_base_T, T, init_params=None):
     """
@@ -107,31 +112,33 @@ def fit_hawkes(t, mu_base_t, M_base_T, T, init_params=None):
         alpha0 = 0.1
         init_params = np.array([kappa0, alpha0, beta0])
         
+    kappa_init, alpha_init, beta_init = init_params
+    br_init = min(0.99, max(1e-4, alpha_init / beta_init))
+    reparam_init = np.array([kappa_init, br_init, beta_init])
+        
     bounds = [
         (1e-5, None),      # kappa > 0
-        (1e-5, None),      # alpha > 0
+        (1e-5, 0.999),     # branching_ratio < 1 (stability)
         (1e-5, None)       # beta > 0
     ]
     
-    # L-BFGS-B allows bounds. We enforce alpha < beta implicitly via the objective returning inf
-    # Alternatively, use a constraint. But returning inf in objective is usually sufficient.
     res = minimize(
-        neg_loglik_hawkes, 
-        init_params, 
+        neg_loglik_hawkes_reparam, 
+        reparam_init, 
         args=(t, mu_base_t, M_base_T, T),
         method='L-BFGS-B',
         bounds=bounds,
         options={'ftol': 1e-9, 'maxiter': 1000}
     )
     
-    kappa_opt, alpha_opt, beta_opt = res.x
-    branching_ratio = alpha_opt / beta_opt
+    kappa_opt, br_opt, beta_opt = res.x
+    alpha_opt = br_opt * beta_opt
     
     return {
         'kappa': kappa_opt,
         'alpha': alpha_opt,
         'beta': beta_opt,
-        'branching_ratio': branching_ratio,
+        'branching_ratio': br_opt,
         'loglik': -res.fun,
         'converged': res.success,
         'message': res.message

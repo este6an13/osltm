@@ -395,7 +395,7 @@ def run_lgcp_bayesian(
     # Poisson likelihood in count space: N_k ~ Poisson(exp(z_k) · 1).
     delta_t = 1.0
 
-    persistence_dir = Path(step4_params.get("persistence_dir", "src/workflow/data"))
+    persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     if not sampled_dates:
         raise ValueError("No sampled dates found. Run workflow steps 1-4 first.")
