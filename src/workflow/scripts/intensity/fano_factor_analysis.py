@@ -179,6 +179,7 @@ def plot_fano_factors(
     time_cols: list[str],
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    show_plots: bool = False,
 ) -> None:
     """
     Plot Fano factors with median line.
@@ -278,7 +279,9 @@ def plot_fano_factors(
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved Fano factor plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_fano_factor_analysis(
@@ -286,6 +289,7 @@ def run_fano_factor_analysis(
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run Fano factor analysis.
@@ -378,6 +382,7 @@ def run_fano_factor_analysis(
         time_cols,
         output_dir=output_dir,
         count_type=count_type,
+        show_plots=show_plots,
     )
 
     # Save per-station Fano factor CSV
@@ -456,6 +461,11 @@ if __name__ == "__main__":
         nargs="+",
         help="Optional list of station codes to analyze (default: all from data)",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -464,6 +474,7 @@ if __name__ == "__main__":
         output_dir=Path(args.output_dir) if args.output_dir else None,
         params_path=Path(args.params),
         station_codes=args.stations,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Generated Fano factor analysis for {args.count_type}")

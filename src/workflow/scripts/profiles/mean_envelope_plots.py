@@ -226,6 +226,7 @@ def plot_mean_envelope(
     envelope_type: str = "std",
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    show_plots: bool = False,
 ) -> None:
     """
     Plot mean curves with envelopes for each day type.
@@ -238,6 +239,7 @@ def plot_mean_envelope(
         envelope_type: Type of envelope used ("std" or "quantile")
         output_dir: Optional directory to save the plot
         count_type: Type of counts ("checkins" or "checkouts")
+        show_plots: Whether to show the plot interactively
     """
     if not results:
         print(f"⚠️  No data to plot for station {station_code}")
@@ -352,7 +354,9 @@ def plot_mean_envelope(
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_mean_envelope_analysis(
@@ -363,6 +367,7 @@ def run_mean_envelope_analysis(
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run mean envelope analysis for each station.
@@ -375,7 +380,7 @@ def run_mean_envelope_analysis(
         output_dir: Directory to save plots (default: src/workflow/results/envelope_results)
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all from data.
-
+        show_plots: Whether to show the plots interactively
     Returns:
         Dictionary with results for each station
     """
@@ -506,6 +511,7 @@ def run_mean_envelope_analysis(
             envelope_type=envelope_type,
             output_dir=output_dir,
             count_type=count_type,
+            show_plots=show_plots,
         )
 
     print(f"\n✅ Completed analysis for {len(results)} stations")
@@ -590,6 +596,11 @@ if __name__ == "__main__":
         nargs="+",
         help="Optional list of station codes to analyze (default: all from data)",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -601,6 +612,7 @@ if __name__ == "__main__":
         output_dir=Path(args.output_dir),
         params_path=Path(args.params),
         station_codes=args.stations,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Generated plots for {len(results)} stations")

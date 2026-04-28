@@ -144,6 +144,7 @@ def plot_fpca_results(
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
     day_types: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> None:
     """
     Plot FPCA results with points colored by station and faceted by day type.
@@ -271,7 +272,9 @@ def plot_fpca_results(
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(g.fig)
 
 
 def run_fpca_across_stations(
@@ -282,6 +285,7 @@ def run_fpca_across_stations(
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
     day_types: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run Functional PCA across all stations.
@@ -412,6 +416,7 @@ def run_fpca_across_stations(
         output_dir=output_dir,
         count_type=count_type,
         day_types=day_types,
+        show_plots=show_plots,
     )
 
     # Save scores CSV
@@ -512,6 +517,11 @@ if __name__ == "__main__":
         choices=["WD", "SA", "SU", "HO"],
         help="Optional list of day types to include (WD, SA, SU, HO). Default: all.",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -523,6 +533,7 @@ if __name__ == "__main__":
         params_path=Path(args.params),
         station_codes=args.stations,
         day_types=args.day_types,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Summary: Analyzed {len(results['projected'])} (station, day) profiles")

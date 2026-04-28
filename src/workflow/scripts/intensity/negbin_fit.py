@@ -261,6 +261,7 @@ def plot_dispersion(
     fit_df: pd.DataFrame,
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    show_plots: bool = False,
 ) -> None:
     """
     Plot 1/r̂ (overdispersion index) vs time-of-day per day-type.
@@ -341,13 +342,16 @@ def plot_dispersion(
         fname = output_dir / f"negbin_dispersion_{count_type}.png"
         plt.savefig(fname, dpi=300, bbox_inches="tight")
         print(f"💾 Saved dispersion plot to {fname}")
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def plot_delta_aic(
     fit_df: pd.DataFrame,
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    show_plots: bool = False,
 ) -> None:
     """
     Plot ΔAIC = AIC_Poisson − AIC_NegBin vs time-of-day per day-type.
@@ -426,7 +430,9 @@ def plot_delta_aic(
         fname = output_dir / f"negbin_aic_comparison_{count_type}.png"
         plt.savefig(fname, dpi=300, bbox_inches="tight")
         print(f"💾 Saved ΔAIC plot to {fname}")
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
@@ -438,6 +444,7 @@ def run_negbin_fit(
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
     min_days: int = 5,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run Negative Binomial per-bin fit analysis.
@@ -535,8 +542,8 @@ def run_negbin_fit(
 
     # ── Plots ─────────────────────────────────────────────────────────────
     print("📊 Generating plots...")
-    plot_dispersion(fit_df, output_dir=output_dir, count_type=count_type)
-    plot_delta_aic(fit_df, output_dir=output_dir, count_type=count_type)
+    plot_dispersion(fit_df, output_dir=output_dir, count_type=count_type, show_plots=show_plots)
+    plot_delta_aic(fit_df, output_dir=output_dir, count_type=count_type, show_plots=show_plots)
 
     print(f"\n✅ Completed NegBin fit analysis for {count_type}")
 
@@ -582,6 +589,11 @@ if __name__ == "__main__":
         default=5,
         help="Minimum replicate days required to fit a bin (default: 5)",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -591,6 +603,7 @@ if __name__ == "__main__":
         params_path=Path(args.params),
         station_codes=args.stations,
         min_days=args.min_days,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Generated NegBin fit analysis for {args.count_type}")

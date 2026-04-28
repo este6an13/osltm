@@ -211,6 +211,7 @@ def plot_mean_envelope_by_station(
     time_cols: list[str],
     envelope_type: str = "std",
     output_dir: Optional[Path] = None,
+    show_plots: bool = False,
     count_type: str = "checkins",
     station_codes: Optional[list[str]] = None,
     day_types: Optional[list[str]] = None,
@@ -224,6 +225,7 @@ def plot_mean_envelope_by_station(
         time_cols: List of time column names
         envelope_type: Type of envelope used ("std" or "quantile")
         output_dir: Optional directory to save the plot
+        show_plots: Whether to display plots
         count_type: Type of counts ("checkins" or "checkouts")
         station_codes: Optional list of station codes to include (for consistent colors)
         day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
@@ -391,7 +393,9 @@ def plot_mean_envelope_by_station(
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_mean_envelope_by_station(
@@ -403,6 +407,7 @@ def run_mean_envelope_by_station(
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
     day_types: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run mean envelope analysis across stations, grouped by day type.
@@ -416,6 +421,7 @@ def run_mean_envelope_by_station(
         params_path: Path to params.json (default: src/workflow/params.json)
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
         day_types: Optional list of day types to include (WD, SA, SU, HO). If None, uses all.
+        show_plots: Whether to display plots
 
     Returns:
         Dictionary with results for each day type
@@ -542,6 +548,7 @@ def run_mean_envelope_by_station(
         time_cols,
         envelope_type=envelope_type,
         output_dir=output_dir,
+        show_plots=show_plots,
         count_type=count_type,
         station_codes=station_codes,
         day_types=day_types,
@@ -635,6 +642,11 @@ if __name__ == "__main__":
         choices=["WD", "SA", "SU", "HO"],
         help="Optional list of day types to include (WD, SA, SU, HO). Default: all.",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -647,6 +659,7 @@ if __name__ == "__main__":
         params_path=Path(args.params),
         station_codes=args.stations,
         day_types=args.day_types,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Generated plots for {len(results)} day types")

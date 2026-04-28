@@ -138,6 +138,7 @@ def plot_heatmap(
     count_type: str = "checkins",
     cmap: str = "YlOrRd",
     figsize: Optional[tuple[float, float]] = None,
+    show_plots: bool = False,
 ) -> None:
     """
     Create a heatmap of station arrival profiles.
@@ -226,7 +227,9 @@ def plot_heatmap(
         fig.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_heatmap_analysis(
@@ -237,6 +240,7 @@ def run_heatmap_analysis(
     station_codes: Optional[list[str]] = None,
     cmap: str = "YlOrRd",
     figsize: Optional[tuple[float, float]] = None,
+    show_plots: bool = False,
 ) -> pd.DataFrame:
     """
     Run heatmap analysis for station profiles.
@@ -249,6 +253,7 @@ def run_heatmap_analysis(
         station_codes: Optional list of station codes to analyze. If None, uses all stations.
         cmap: Colormap for heatmap (default: "YlOrRd")
         figsize: Optional figure size tuple (width, height)
+        show_plots: Whether to show the plot interactively
 
     Returns:
         DataFrame with mean profiles (stations x time bins)
@@ -335,6 +340,7 @@ def run_heatmap_analysis(
         count_type=count_type,
         cmap=cmap,
         figsize=figsize,
+        show_plots=show_plots,
     )
 
     # Save mean profiles to CSV
@@ -398,6 +404,11 @@ if __name__ == "__main__":
         metavar=("WIDTH", "HEIGHT"),
         help="Figure size as width height (default: auto)",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -413,6 +424,7 @@ if __name__ == "__main__":
         station_codes=args.stations,
         cmap=args.cmap,
         figsize=figsize,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Summary: Created heatmap for {len(results)} stations")
