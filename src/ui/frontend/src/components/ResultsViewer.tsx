@@ -23,6 +23,7 @@ export default function ResultsViewer({ outputDir, experimentId, pipelineId }: R
   const [files, setFiles] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [csvData, setCsvData] = useState<any | null>(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const fetchExperiments = () => {
     fetch(`http://127.0.0.1:8000/api/results/${outputDir}`)
@@ -53,13 +54,12 @@ export default function ResultsViewer({ outputDir, experimentId, pipelineId }: R
 
   useEffect(() => {
     if (!selectedExp || !selectedPipelineId || !outputDir) return;
-    setSelectedFile(null);
-    setCsvData(null);
+    // Don't auto-deselect files on refresh, just update the list
     fetch(`http://127.0.0.1:8000/api/results/${outputDir}/${selectedPipelineId}/${selectedExp}`)
       .then(res => res.json())
       .then(data => setFiles(data.files ?? []))
       .catch(console.error);
-  }, [selectedExp, selectedPipelineId, outputDir]);
+  }, [selectedExp, selectedPipelineId, outputDir, refreshCounter]);
 
   useEffect(() => {
     if (!selectedFile || !selectedExp || !selectedPipelineId || !outputDir) return;
@@ -71,7 +71,7 @@ export default function ResultsViewer({ outputDir, experimentId, pipelineId }: R
     } else {
       setCsvData(null);
     }
-  }, [selectedFile, selectedExp, selectedPipelineId, outputDir]);
+  }, [selectedFile, selectedExp, selectedPipelineId, outputDir, refreshCounter]);
 
   if (!outputDir) return null;
 
@@ -89,7 +89,14 @@ export default function ResultsViewer({ outputDir, experimentId, pipelineId }: R
         <h2 style={{ fontSize: '1.25rem', color: 'var(--accent-primary)' }}>
           Results — <span style={{ fontFamily: 'monospace', fontSize: '1rem' }}>{outputDir}</span>
         </h2>
-        <button className="btn btn-secondary" onClick={fetchExperiments} style={{ fontSize: '0.75rem' }}>
+        <button
+          className="btn btn-secondary"
+          onClick={() => {
+            fetchExperiments();
+            setRefreshCounter(c => c + 1);
+          }}
+          style={{ fontSize: '0.75rem' }}
+        >
           ↻ Refresh
         </button>
       </div>
@@ -165,7 +172,10 @@ export default function ResultsViewer({ outputDir, experimentId, pipelineId }: R
                 {files.map(file => (
                   <button
                     key={file}
-                    onClick={() => setSelectedFile(file)}
+                    onClick={() => {
+                      setSelectedFile(file);
+                      setCsvData(null);
+                    }}
                     style={{
                       padding: '0.375rem 0.75rem',
                       borderRadius: 'var(--radius-sm)',
@@ -189,51 +199,51 @@ export default function ResultsViewer({ outputDir, experimentId, pipelineId }: R
 
       {/* File Preview */}
       {selectedFile && selectedExp && (
-        <div style={{ background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-strong)', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-light)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{selectedFile}</span>
-            <a
-              href={`http://127.0.0.1:8000/api/results/${outputDir}/${selectedPipelineId}/${selectedExp}/${selectedFile}/download`}
-              download
-              className="btn btn-primary"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-            >
-              Download
-            </a>
-          </div>
-          <div style={{ padding: '1rem', maxHeight: '500px', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
-            {selectedFile.endsWith('.png') && (
-              <img src={fileUrl} alt={selectedFile} style={{ maxWidth: '100%', borderRadius: 'var(--radius-sm)' }} />
-            )}
-            {selectedFile.endsWith('.csv') && csvData?.columns && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                <thead>
-                  <tr>
-                    {csvData.columns.map((col: string) => (
-                      <th key={col} style={{ padding: '0.4rem 0.6rem', fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-secondary)', position: 'sticky', top: 0, borderBottom: '1px solid var(--border-strong)' }}>
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvData.data.map((row: any, i: number) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      {csvData.columns.map((col: string) => (
-                        <td key={col} style={{ padding: '0.4rem 0.6rem', whiteSpace: 'nowrap' }}>
-                          {row[col] !== null ? String(row[col]) : ''}
-                        </td>
-                      ))}
-                    </tr>
+    <div style={{ background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-strong)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-light)' }}>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{selectedFile}</span>
+        <a
+          href={`http://127.0.0.1:8000/api/results/${outputDir}/${selectedPipelineId}/${selectedExp}/${selectedFile}/download`}
+          download
+          className="btn btn-primary"
+          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+        >
+          Download
+        </a>
+      </div>
+      <div style={{ padding: '1rem', maxHeight: '500px', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
+        {selectedFile.endsWith('.png') && (
+          <img src={fileUrl} alt={selectedFile} style={{ maxWidth: '100%', borderRadius: 'var(--radius-sm)' }} />
+        )}
+        {selectedFile.endsWith('.csv') && csvData?.columns && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+            <thead>
+              <tr>
+                {csvData.columns.map((col: string) => (
+                  <th key={col} style={{ padding: '0.4rem 0.6rem', fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-secondary)', position: 'sticky', top: 0, borderBottom: '1px solid var(--border-strong)' }}>
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {csvData.data.map((row: any, i: number) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  {csvData.columns.map((col: string) => (
+                    <td key={col} style={{ padding: '0.4rem 0.6rem', whiteSpace: 'nowrap' }}>
+                      {row[col] !== null ? String(row[col]) : ''}
+                    </td>
                   ))}
-                </tbody>
-              </table>
-            )}
-            {selectedFile.endsWith('.csv') && !csvData?.columns && (
-              <div style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
-            )}
-          </div>
-        </div>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {selectedFile.endsWith('.csv') && !csvData?.columns && (
+          <div style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
+        )}
+      </div>
+    </div>
       )}
     </div>
   );
