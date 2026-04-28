@@ -197,6 +197,7 @@ def plot_distance_distributions(
     station_name: str,
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
+    show_plots: bool = False,
 ) -> None:
     """
     Plot distributions of within-group and between-group distances.
@@ -366,7 +367,9 @@ def plot_distance_distributions(
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_distance_analysis(
@@ -375,6 +378,7 @@ def run_distance_analysis(
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
     plot: bool = True,
+    show_plots: bool = False,
 ) -> pd.DataFrame:
     """
     Run within- vs between-group distance analysis for each station.
@@ -526,6 +530,7 @@ def run_distance_analysis(
                 station_name,
                 output_dir=output_dir,
                 count_type=count_type,
+                show_plots=show_plots,
             )
 
     # Create results DataFrame
@@ -602,6 +607,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Don't generate plots",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -611,6 +621,7 @@ if __name__ == "__main__":
         params_path=Path(args.params),
         station_codes=args.stations,
         plot=not args.no_plot,
+        show_plots=args.show_plots,
     )
 
     print("\n📊 Final Results:")

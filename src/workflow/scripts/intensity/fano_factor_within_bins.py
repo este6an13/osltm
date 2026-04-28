@@ -488,6 +488,8 @@ def plot_fano_factors(
     quantile_low: float = 0.25,
     quantile_high: float = 0.75,
     day_types_to_analyze: Optional[list[str]] = None,
+    baseline_fano: float = 1.0,
+    show_plots: bool = False,
 ) -> None:
     """
     Plot Fano factors with median and envelope (std or quantile).
@@ -501,6 +503,8 @@ def plot_fano_factors(
         quantile_low: Lower quantile used (for label)
         quantile_high: Upper quantile used (for label)
         day_types_to_analyze: Optional list of day types to plot. If None, uses all.
+        baseline_fano: Baseline reference line (default: 1.0 for Poisson)
+        show_plots: Whether to display plots interactively
     """
     # Convert time columns to hours for x-axis
     time_hours = np.array([time_column_to_hours(col) for col in time_cols])
@@ -594,7 +598,7 @@ def plot_fano_factors(
 
         # Add horizontal reference line at 1 (Poisson expectation)
         ax.axhline(
-            y=1.0, color="red", linestyle="--", linewidth=2, label="Poisson (Fano=1)"
+            y=baseline_fano, color="red", linestyle="--", linewidth=2, label=f"Poisson (Fano={baseline_fano})"
         )
 
         ax.set_xlabel("Time of Day (hours)", fontsize=12)
@@ -616,7 +620,9 @@ def plot_fano_factors(
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved Fano factor plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_fano_factor_within_bins_analysis(
@@ -632,6 +638,7 @@ def run_fano_factor_within_bins_analysis(
     quantile_low: float = 0.25,
     quantile_high: float = 0.75,
     date_type: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run Fano factor within bins analysis.
@@ -655,6 +662,7 @@ def run_fano_factor_within_bins_analysis(
         date_type: Optional list of day types to analyze (e.g., ["WD", "SA"]).
             Valid values: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday).
             If None, uses all day types.
+        show_plots: Whether to display plots interactively
 
     Returns:
         Dictionary with Fano factors per station, day type, and time bin
@@ -872,6 +880,7 @@ def run_fano_factor_within_bins_analysis(
         quantile_low=quantile_low,
         quantile_high=quantile_high,
         day_types_to_analyze=day_types_to_analyze,
+        show_plots=show_plots,
     )
 
     # Save median envelope CSV
@@ -983,6 +992,11 @@ if __name__ == "__main__":
         default=None,
         help="Day types to analyze: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday). "
         "If not specified, all day types are analyzed. (default: all)",
+    )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
     )
 
     args = parser.parse_args()

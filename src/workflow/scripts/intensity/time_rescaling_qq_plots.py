@@ -336,6 +336,8 @@ def plot_qq_plot(
     station_name: str,
     day_type: str,
     output_dir: Optional[Path] = None,
+    count_type: str = "checkins",
+    show_plots: bool = False,
 ) -> None:
     """
     Plot QQ-plot of uniform values against theoretical uniform(0,1).
@@ -346,6 +348,8 @@ def plot_qq_plot(
         station_name: Station name
         day_type: Day type (WD, SA, SU, HO)
         output_dir: Optional directory to save plot
+        count_type: Type of count ("checkins" or "checkouts")
+        show_plots: Whether to display plots
     """
     if len(uniform_values) == 0:
         print(f"⚠️  No data to plot for {station_code}/{day_type}")
@@ -379,7 +383,7 @@ def plot_qq_plot(
     ax.set_ylabel("Sample Quantiles", fontsize=12)
     ax.set_title(
         f"QQ-Plot: {station_code} - {station_name}\n"
-        f"{DATE_TYPE_LABELS.get(day_type, day_type)} (Checkins)\n"
+        f"{DATE_TYPE_LABELS.get(day_type, day_type)} ({count_type})\n"
         f"n={len(uniform_values)}",
         fontsize=12,
         fontweight="bold",
@@ -392,11 +396,13 @@ def plot_qq_plot(
 
     if output_dir:
         output_dir.mkdir(parents=True, exist_ok=True)
-        filename = output_dir / f"qq_plot_{station_code}_{day_type}_checkins.png"
+        filename = output_dir / f"qq_plot_{station_code}_{day_type}_{count_type}.png"
         plt.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved QQ-plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_time_rescaling_analysis(
@@ -407,6 +413,7 @@ def run_time_rescaling_analysis(
     time_window_minutes: float = 15.0,
     date_percentage: Optional[float] = None,
     date_type: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> dict:
     """
     Run time rescaling theorem analysis for checkins.
@@ -426,6 +433,7 @@ def run_time_rescaling_analysis(
         date_type: Optional list of day types to analyze (e.g., ["WD", "SA"]).
             Valid values: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday).
             If None, uses all day types.
+        show_plots: Whether to display plots
 
     Returns:
         Dictionary with results for each station and day type
@@ -667,6 +675,8 @@ def run_time_rescaling_analysis(
                 station_name,
                 day_type,
                 output_dir=output_dir,
+                count_type="checkins",
+                show_plots=show_plots,
             )
 
             # Compute KS test
@@ -751,6 +761,11 @@ if __name__ == "__main__":
         help="Day types to analyze: WD (Weekday), SA (Saturday), SU (Sunday), HO (Holiday). "
         "If not specified, all day types are analyzed. (default: all)",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -762,6 +777,7 @@ if __name__ == "__main__":
         time_window_minutes=args.time_window_minutes,
         date_percentage=args.date_percentage,
         date_type=args.date_type,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Generated QQ-plots for {len(results)} stations")

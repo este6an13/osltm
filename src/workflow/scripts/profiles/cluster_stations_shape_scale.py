@@ -174,6 +174,7 @@ def plot_cluster_profiles(
     output_dir: Optional[Path] = None,
     count_type: str = "checkins",
     n_clusters: Optional[int] = None,
+    show_plots: bool = False,
 ) -> None:
     """
     Plot station profiles grouped by cluster.
@@ -270,7 +271,9 @@ def plot_cluster_profiles(
         fig.savefig(filename, dpi=300, bbox_inches="tight")
         print(f"💾 Saved plot to {filename}")
 
-    plt.show()
+    if show_plots:
+        plt.show()
+    plt.close(fig)
 
 
 def run_shape_scale_clustering(
@@ -280,6 +283,7 @@ def run_shape_scale_clustering(
     output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
+    show_plots: bool = False,
 ) -> tuple[pd.DataFrame, np.ndarray]:
     """
     Run shape+scale clustering on station profiles.
@@ -387,6 +391,7 @@ def run_shape_scale_clustering(
         output_dir=output_dir,
         count_type=count_type,
         n_clusters=n_clusters,
+        show_plots=show_plots,
     )
 
     print("\n✅ Completed shape+scale clustering")
@@ -462,6 +467,11 @@ if __name__ == "__main__":
         nargs="+",
         help="Optional list of station codes to analyze (default: all stations)",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Display the plots interactively in a window (blocks execution)",
+    )
 
     args = parser.parse_args()
 
@@ -472,6 +482,7 @@ if __name__ == "__main__":
         output_dir=Path(args.output_dir),
         params_path=Path(args.params),
         station_codes=args.stations,
+        show_plots=args.show_plots,
     )
 
     print(f"\n📊 Summary: Clustered {len(results[0])} stations into {args.n_clusters} clusters")
