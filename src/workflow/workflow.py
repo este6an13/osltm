@@ -151,6 +151,14 @@ Examples:
     # Run workflow
     run_workflow(params, step_numbers)
 
+    # Persist updated parameters back to the JSON file
+    try:
+        with open(args.params, "w") as f:
+            json.dump(params, f, indent=2)
+        print(f"💾 Updated parameters saved to {args.params}")
+    except Exception as e:
+        print(f"⚠️ Failed to save updated parameters: {e}")
+
 
 if __name__ == "__main__":
     main()

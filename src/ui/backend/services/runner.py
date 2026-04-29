@@ -63,6 +63,19 @@ class RunnerService:
             key=lambda d: d.name,
             reverse=True,
         )
+        
+        # Load reference stations once to map names
+        ref_path = DATA_BASE / "stations_reference.csv"
+        ref_map = {}
+        if ref_path.exists():
+            import pandas as pd
+            try:
+                ref_df = pd.read_csv(ref_path, dtype={"code": str})
+                if "code" in ref_df.columns and "name" in ref_df.columns:
+                    ref_map = dict(zip(ref_df["code"], ref_df["name"]))
+            except Exception:
+                pass
+
         results = []
         for pd_ in pipeline_dirs:
             params_file = pd_ / "params.json"
@@ -70,7 +83,41 @@ class RunnerService:
                 continue
             try:
                 with open(params_file) as f:
-                    results.append(json.load(f))
+                    p = json.load(f)
+                
+                # Check for sampled dates if null
+                if not p.get("sampled_dates"):
+                    dates_file = pd_ / "sampled_dates.csv"
+                    if dates_file.exists():
+                        import pandas as pd
+                        try:
+                            df = pd.read_csv(dates_file)
+                            if "date" in df.columns:
+                                p["sampled_dates"] = df["date"].astype(str).tolist()
+                        except Exception:
+                            pass
+                            
+                # Check for sampled stations if null
+                if not p.get("sampled_stations"):
+                    stations_file = pd_ / "sampled_stations.csv"
+                    if stations_file.exists():
+                        import pandas as pd
+                        try:
+                            df = pd.read_csv(stations_file, dtype={"code": str})
+                            if "code" in df.columns:
+                                st_list = []
+                                for _, row in df.iterrows():
+                                    code = str(row["code"])
+                                    # Use reference map if available, otherwise fallback to row name
+                                    name = ref_map.get(code)
+                                    if not name and "name" in df.columns:
+                                        name = str(row["name"])
+                                    st_list.append({"code": code, "name": name or "Unknown"})
+                                p["sampled_stations"] = st_list
+                        except Exception:
+                            pass
+
+                results.append(p)
             except Exception:
                 continue
         return results
