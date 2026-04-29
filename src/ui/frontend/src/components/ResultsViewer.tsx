@@ -191,9 +191,9 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
               
               {/* Image Gallery */}
               {images.length > 0 && (
-                <div style={{ border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', background: '#0a0a0a', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem', background: '#18181b', borderBottom: '1px solid #27272a' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#a1a1aa', fontFamily: 'monospace' }}>
+                <div style={{ border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem', background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-strong)' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                       {isGridView ? `${images.length} images` : images[currentImageIndex]}
                     </span>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -213,13 +213,13 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
                     </div>
                   </div>
 
-                  <div style={{ padding: '1rem', minHeight: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                  <div style={{ padding: '1rem', minHeight: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', background: '#fff' }}>
                     {isGridView ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', width: '100%' }}>
                         {images.map((img, i) => (
-                          <div key={img} style={{ cursor: 'pointer', border: '1px solid #27272a', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }} onClick={() => { setCurrentImageIndex(i); setIsGridView(false); }}>
+                          <div key={img} style={{ cursor: 'pointer', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--bg-primary)' }} onClick={() => { setCurrentImageIndex(i); setIsGridView(false); }}>
                             <img src={getFileUrl(img)} alt={img} style={{ width: '100%', height: 'auto', display: 'block' }} loading="lazy" />
-                            <div style={{ padding: '0.4rem', fontSize: '0.7rem', background: '#18181b', color: '#a1a1aa', textAlign: 'center', fontFamily: 'monospace', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{img}</div>
+                            <div style={{ padding: '0.4rem', fontSize: '0.7rem', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', textAlign: 'center', fontFamily: 'monospace', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', borderTop: '1px solid var(--border-light)' }}>{img}</div>
                           </div>
                         ))}
                       </div>
@@ -230,13 +230,13 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
                           <>
                             <button 
                               onClick={() => setCurrentImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1))}
-                              style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.2rem', backdropFilter: 'blur(4px)' }}
+                              style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', color: 'var(--text-primary)', border: '1px solid var(--border-strong)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.2rem', boxShadow: 'var(--shadow-md)' }}
                             >
                               ◀
                             </button>
                             <button 
                               onClick={() => setCurrentImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1))}
-                              style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.2rem', backdropFilter: 'blur(4px)' }}
+                              style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', color: 'var(--text-primary)', border: '1px solid var(--border-strong)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.2rem', boxShadow: 'var(--shadow-md)' }}
                             >
                               ▶
                             </button>
@@ -244,9 +244,9 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
                         )}
                         {/* Gallery Indicators */}
                         {images.length > 1 && (
-                          <div style={{ position: 'absolute', bottom: '1rem', display: 'flex', gap: '0.4rem', background: 'rgba(0,0,0,0.5)', padding: '0.3rem 0.6rem', borderRadius: '999px', backdropFilter: 'blur(4px)' }}>
+                          <div style={{ position: 'absolute', bottom: '1rem', display: 'flex', gap: '0.4rem', background: 'rgba(255,255,255,0.8)', padding: '0.3rem 0.6rem', borderRadius: '999px', border: '1px solid var(--border-strong)' }}>
                             {images.map((_, i) => (
-                              <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i === currentImageIndex ? 'white' : 'rgba(255,255,255,0.3)' }} />
+                              <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i === currentImageIndex ? 'var(--accent-primary)' : 'var(--border-strong)' }} />
                             ))}
                           </div>
                         )}
@@ -258,11 +258,11 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
 
               {/* CSV Tables */}
               {csvs.length > 0 && (
-                <details style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)' }} open={images.length === 0}>
-                  <summary style={{ padding: '1rem', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <details style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)' }} open={images.length === 0}>
+                  <summary style={{ padding: '1rem', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)' }}>
                     <span>📁 Data Tables ({csvs.length})</span>
                   </summary>
-                  <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)' }}>
+                  <div style={{ padding: '1rem', borderTop: '1px solid var(--border-strong)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                       {csvs.map(file => (
                         <button
@@ -271,10 +271,11 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
                           style={{
                             padding: '0.375rem 0.75rem',
                             borderRadius: 'var(--radius-sm)',
-                            border: selectedCsvFile === file ? '1px solid var(--accent-secondary)' : '1px solid var(--border-light)',
-                            background: selectedCsvFile === file ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)',
-                            color: selectedCsvFile === file ? 'var(--accent-secondary)' : 'var(--text-secondary)',
+                            border: selectedCsvFile === file ? '1px solid var(--accent-primary)' : '1px solid var(--border-strong)',
+                            background: selectedCsvFile === file ? 'var(--bg-highlight)' : 'var(--bg-secondary)',
+                            color: selectedCsvFile === file ? 'var(--accent-primary)' : 'var(--text-secondary)',
                             fontSize: '0.8rem',
+                            fontWeight: selectedCsvFile === file ? 600 : 400
                           }}
                         >
                           📊 {file}

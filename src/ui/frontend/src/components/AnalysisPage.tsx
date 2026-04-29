@@ -164,20 +164,22 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
       <p className="page-subtitle" style={{ marginBottom: '1.5rem' }}>View results or configure parameters and execute analysis scripts dynamically.</p>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', overflowX: 'auto', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid var(--border-strong)', overflowX: 'auto', marginBottom: '1.5rem', paddingLeft: '0.5rem' }}>
         {Object.entries(scripts).map(([key, script]: [string, any]) => (
           <button
             key={key}
             onClick={() => handleSelectScript(key)}
             style={{
-              padding: '0.5rem 1rem',
-              background: selectedScript === key ? 'var(--bg-secondary)' : 'transparent',
+              padding: '0.5rem 1.25rem',
+              background: selectedScript === key ? 'var(--bg-primary)' : 'var(--bg-secondary)',
               color: selectedScript === key ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              border: `1px solid ${selectedScript === key ? 'var(--border-strong)' : 'transparent'}`,
-              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-strong)',
+              borderBottom: selectedScript === key ? '1px solid var(--bg-primary)' : '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
               fontWeight: selectedScript === key ? 600 : 400,
               whiteSpace: 'nowrap',
-              transition: 'all 0.2s ease'
+              marginBottom: '-1px', // overlap the bottom border
+              transition: 'background-color var(--transition-fast)'
             }}
           >
             {script.name}
@@ -189,14 +191,14 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
       {selectedScript && scripts[selectedScript] && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2rem', marginBottom: '2rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.5rem', fontWeight: 600 }}>
               {scripts[selectedScript].name}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '800px' }}>
               {scripts[selectedScript].description}
             </p>
             {scripts[selectedScript].depends_on && (
-              <span style={{ display: 'inline-block', marginTop: '0.5rem', fontSize: '0.75rem', padding: '0.1rem 0.5rem', borderRadius: '999px', background: 'rgba(245,158,11,0.15)', color: 'var(--accent-warning)', border: '1px solid rgba(245,158,11,0.3)' }}>
+              <span style={{ display: 'inline-block', marginTop: '0.5rem', fontSize: '0.75rem', padding: '0.1rem 0.5rem', background: 'var(--bg-highlight)', color: 'var(--text-secondary)', border: '1px solid var(--border-strong)' }}>
                 ↳ requires {scripts[selectedScript].depends_on}
               </span>
             )}
@@ -221,12 +223,12 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
 
       {/* Run Modal */}
       {isRunModalOpen && selectedScript && scripts[selectedScript] && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', width: '90vw', height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'none' }}>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', width: '90vw', height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
             
             {/* Modal Header */}
-            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Configure & Run: {scripts[selectedScript].name}</h2>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-strong)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--accent-primary)' }}>Configure & Run: {scripts[selectedScript].name}</h2>
               <button onClick={() => setIsRunModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
             </div>
 
@@ -234,7 +236,7 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
               
               {/* Left Column: Config */}
-              <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', borderRight: '1px solid var(--border-light)' }}>
+              <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', borderRight: '1px solid var(--border-strong)', background: 'var(--bg-primary)' }}>
                 
                 {/* Pipeline Selector */}
                 <div className="form-group" style={{ marginBottom: '2rem' }}>
@@ -257,9 +259,9 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
 
                 {/* Upstream Experiment Picker */}
                 {scripts[selectedScript].depends_on && (
-                  <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ marginBottom: '2rem', padding: '1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-warning)' }}>⬆ Upstream Experiment</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>⬆ Upstream Experiment</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>from <code>{scripts[selectedScript].depends_on}</code></span>
                     </div>
 
@@ -273,7 +275,7 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
                         {upstreamExps.map(exp => (
                           <label
                             key={exp.experiment_id}
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', background: selectedUpstreamExp === exp.experiment_id ? 'rgba(245,158,11,0.12)' : 'var(--bg-primary)', border: `1px solid ${selectedUpstreamExp === exp.experiment_id ? 'var(--accent-warning)' : 'var(--border-light)'}`, cursor: 'pointer' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', background: selectedUpstreamExp === exp.experiment_id ? 'var(--bg-highlight)' : 'var(--bg-primary)', border: `1px solid ${selectedUpstreamExp === exp.experiment_id ? 'var(--accent-primary)' : 'var(--border-strong)'}`, cursor: 'pointer' }}
                           >
                             <input
                               type="radio"
@@ -281,7 +283,7 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
                               value={exp.experiment_id}
                               checked={selectedUpstreamExp === exp.experiment_id}
                               onChange={() => setSelectedUpstreamExp(exp.experiment_id)}
-                              style={{ accentColor: 'var(--accent-warning)' }}
+                              style={{ accentColor: 'var(--accent-primary)' }}
                             />
                             <div>
                               <div style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: 'var(--text-primary)' }}>
@@ -303,7 +305,7 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
                 )}
 
                 {/* Script Parameters */}
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-light)' }}>Parameters</h3>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-strong)', color: 'var(--accent-primary)' }}>Parameters</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   {scripts[selectedScript].params.map((param: any) => (
                     <div key={param.name} className="form-group" style={{ marginBottom: 0 }}>
@@ -311,13 +313,13 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
                       {param.description && <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.5rem' }}>{param.description}</p>}
 
                       {param.type === 'station_list' && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-strong)' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', padding: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-strong)' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
                             <input type="checkbox" checked={(scriptParams.stations?.length ?? 0) === 0} onChange={() => updateParam('stations', [])} />
-                            <span style={{ color: 'var(--accent-warning)' }}>All Stations</span>
+                            <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>All Stations</span>
                           </label>
                           {stations.map((s: any) => (
-                            <label key={s.station_code} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', background: 'var(--bg-primary)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                            <label key={s.station_code} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', background: 'var(--bg-primary)', padding: '0.2rem 0.5rem', border: '1px solid var(--border-light)' }}>
                               <input type="checkbox" checked={scriptParams.stations?.includes(s.station_code)} onChange={() => toggleStation(s.station_code)} />
                               {s.station_code} – {s.station_name?.split(' ')[0]}
                             </label>
@@ -343,10 +345,9 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
                                 }}
                                 style={{
                                   padding: '0.35rem 0.75rem',
-                                  borderRadius: '999px',
-                                  border: selected ? '1px solid var(--accent-primary)' : '1px solid var(--border-light)',
-                                  background: selected ? 'rgba(59,130,246,0.15)' : 'var(--bg-primary)',
-                                  color: selected ? 'var(--accent-primary)' : 'var(--text-tertiary)',
+                                  border: selected ? '1px solid var(--accent-primary)' : '1px solid var(--border-strong)',
+                                  background: selected ? 'var(--bg-highlight)' : 'var(--bg-primary)',
+                                  color: selected ? 'var(--accent-primary)' : 'var(--text-secondary)',
                                   fontSize: '0.82rem',
                                   fontWeight: selected ? 600 : 400,
                                   cursor: 'pointer',
@@ -377,27 +378,27 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
               </div>
 
               {/* Right Column: Terminal */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a0a', borderLeft: '1px solid #27272a' }}>
-                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #27272a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Execution Log</span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: status === 'running' ? 'var(--accent-warning)' : status === 'completed' ? 'var(--accent-success)' : '#71717a' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a0a', borderLeft: '1px solid var(--border-strong)' }}>
+                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #27272a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121212' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: 600 }}>Execution Log</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: status === 'running' ? '#f59e0b' : status === 'completed' ? '#10b981' : '#71717a' }}>
                     {status.toUpperCase()}
                   </span>
                 </div>
-                <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#e4e4e7', background: '#000' }}>
-                  {logs.length === 0 && <div style={{ color: '#52525b', fontStyle: 'italic' }}>Output captured here...</div>}
+                <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', fontFamily: '"Courier New", Courier, monospace', fontSize: '0.85rem', color: '#e4e4e7', background: '#000' }}>
+                  {logs.length === 0 && <div style={{ color: '#52525b', fontStyle: 'italic' }}>Console output will appear here...</div>}
                   {logs.map((log, i) => (
-                    <div key={i} style={{ color: log.type === 'stderr' ? 'var(--accent-error)' : log.type === 'status' ? 'var(--accent-success)' : 'inherit', whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginBottom: '0.2rem' }}>
+                    <div key={i} style={{ color: log.type === 'stderr' ? '#ef4444' : log.type === 'status' ? '#10b981' : 'inherit', whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginBottom: '0.2rem' }}>
                       {log.line || (log.type === 'status' ? `[Exited: ${log.exit_code}]` : '')}
                     </div>
                   ))}
                 </div>
                 
                 {/* Actions */}
-                <div style={{ padding: '1rem', borderTop: '1px solid #27272a', background: '#0a0a0a' }}>
+                <div style={{ padding: '1rem', borderTop: '1px solid #27272a', background: '#121212' }}>
                   <button
                     className="btn btn-primary"
-                    style={{ width: '100%', padding: '0.875rem', fontSize: '1.05rem' }}
+                    style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
                     onClick={handleRun}
                     disabled={status === 'running' || (!!scripts[selectedScript].depends_on && !selectedUpstreamExp)}
                   >

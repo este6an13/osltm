@@ -132,15 +132,16 @@ export default function PipelinePage() {
                     alignItems: 'center', 
                     gap: '1rem', 
                     padding: '0.75rem 1rem', 
-                    borderRadius: 'var(--radius-md)', 
-                    background: selectedPipelineId === exp.pipeline_id ? 'rgba(59,130,246,0.1)' : 'var(--bg-primary)', 
-                    border: `1px solid ${selectedPipelineId === exp.pipeline_id ? 'var(--accent-primary)' : 'var(--border-light)'}`,
-                    transition: 'all 0.2s ease'
+                    borderRadius: 'var(--radius-sm)', 
+                    background: selectedPipelineId === exp.pipeline_id ? 'var(--bg-highlight)' : 'var(--bg-primary)', 
+                    border: `1px solid ${selectedPipelineId === exp.pipeline_id ? 'var(--accent-primary)' : 'var(--border-strong)'}`,
+                    borderLeft: selectedPipelineId === exp.pipeline_id ? '4px solid var(--accent-primary)' : '1px solid var(--border-strong)',
+                    transition: 'all var(--transition-fast)'
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: selectedPipelineId === exp.pipeline_id ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
-                      {exp.pipeline_id} {i === 0 && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', background: 'var(--accent-primary)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: 'var(--radius-full)' }}>LATEST</span>}
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: selectedPipelineId === exp.pipeline_id ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: selectedPipelineId === exp.pipeline_id ? 600 : 400 }}>
+                      {exp.pipeline_id} {i === 0 && <span style={{ marginLeft: '0.5rem', fontSize: '0.65rem', background: 'var(--accent-primary)', color: 'white', padding: '0.1rem 0.3rem', borderRadius: 'var(--radius-sm)', fontWeight: 'bold' }}>LATEST</span>}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
                       {getParamSummary(exp)}
@@ -268,12 +269,12 @@ export default function PipelinePage() {
 
       {/* Run Modal */}
       {isRunModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', width: '90vw', height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'none' }}>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', width: '90vw', height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
             
             {/* Modal Header */}
-            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Configure & Run: Data Pipeline</h2>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-strong)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--accent-primary)' }}>Configure & Run: Data Pipeline</h2>
               <button onClick={() => setIsRunModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
             </div>
 
@@ -281,7 +282,7 @@ export default function PipelinePage() {
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
               
               {/* Left Column: Config */}
-              <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', borderRight: '1px solid var(--border-light)' }}>
+              <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', borderRight: '1px solid var(--border-strong)', background: 'var(--bg-primary)' }}>
                 
                 {/* Global */}
                 <div style={{ marginBottom: '2rem' }}>
@@ -331,7 +332,7 @@ export default function PipelinePage() {
                         </select>
                       </div>
                       <div className="form-group" style={{ justifyContent: 'flex-end' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                           <input type="checkbox" checked={params.step2.force_redownload || false} onChange={e => handleParamChange('step2', 'force_redownload', e.target.checked)} style={{ accentColor: 'var(--accent-primary)', width: '1rem', height: '1rem' }} />
                           Force Redownload
                         </label>
@@ -385,26 +386,26 @@ export default function PipelinePage() {
               </div>
 
               {/* Right Column: Terminal & Run Actions */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a0a', borderLeft: '1px solid #27272a' }}>
-                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #27272a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Execution Log</span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: status === 'running' ? 'var(--accent-warning)' : status === 'completed' ? 'var(--accent-success)' : '#71717a' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0a0a', borderLeft: '1px solid var(--border-strong)' }}>
+                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #27272a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#121212' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: 600 }}>Execution Log</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: status === 'running' ? '#f59e0b' : status === 'completed' ? '#10b981' : '#71717a' }}>
                     {status.toUpperCase()}
                   </span>
                 </div>
                 
-                <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#e4e4e7', background: '#000' }}>
-                  {logs.length === 0 && <div style={{ color: '#52525b', fontStyle: 'italic' }}>Output captured here...</div>}
+                <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', fontFamily: '"Courier New", Courier, monospace', fontSize: '0.85rem', color: '#e4e4e7', background: '#000' }}>
+                  {logs.length === 0 && <div style={{ color: '#52525b', fontStyle: 'italic' }}>Console output will appear here...</div>}
                   {logs.map((log, i) => (
-                    <div key={i} style={{ color: log.type === 'stderr' ? 'var(--accent-error)' : log.type === 'status' ? 'var(--accent-success)' : 'inherit', whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginBottom: '0.2rem' }}>
+                    <div key={i} style={{ color: log.type === 'stderr' ? '#ef4444' : log.type === 'status' ? '#10b981' : 'inherit', whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginBottom: '0.2rem' }}>
                       {log.line || (log.type === 'status' ? `[Exited: ${log.exit_code}]` : '')}
                     </div>
                   ))}
                 </div>
                 
                 {/* Actions */}
-                <div style={{ padding: '1rem', borderTop: '1px solid #27272a', background: '#0a0a0a' }}>
-                  <h3 style={{ fontSize: '0.8rem', marginBottom: '0.75rem', color: '#a1a1aa' }}>Steps to Run</h3>
+                <div style={{ padding: '1rem', borderTop: '1px solid #27272a', background: '#121212' }}>
+                  <h3 style={{ fontSize: '0.85rem', marginBottom: '0.75rem', color: '#e4e4e7', fontWeight: 600 }}>Steps to Run</h3>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                     {[1, 2, 3, 4].map(step => (
                       <label key={step} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#e4e4e7', fontSize: '0.85rem' }}>
@@ -415,7 +416,7 @@ export default function PipelinePage() {
                   </div>
                   <button
                     className="btn btn-primary"
-                    style={{ width: '100%', padding: '0.875rem', fontSize: '1.05rem' }}
+                    style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
                     onClick={handleRun}
                     disabled={status === 'running' || selectedSteps.length === 0}
                   >
