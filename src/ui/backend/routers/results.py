@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+import shutil
 
 router = APIRouter()
 
@@ -100,3 +101,14 @@ def download_file(output_dir: str, pipeline_id: str, experiment_id: str, filenam
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(file_path), filename=filename)
+
+
+@router.delete("/{output_dir}/{pipeline_id}/{experiment_id}")
+def delete_experiment(output_dir: str, pipeline_id: str, experiment_id: str):
+    """Delete a specific experiment."""
+    exp_path = _safe_path(RESULTS_DIR, output_dir, pipeline_id, experiment_id)
+    if not exp_path.exists() or not exp_path.is_dir():
+        raise HTTPException(status_code=404, detail="Experiment not found")
+        
+    shutil.rmtree(exp_path)
+    return {"status": "deleted", "experiment_id": experiment_id}

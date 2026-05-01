@@ -148,7 +148,40 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
             </div>
             
             <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '200px' }}>
-              <label className="form-label" style={{ fontSize: '0.75rem' }}>Experiment Run</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label className="form-label" style={{ fontSize: '0.75rem', margin: 0 }}>Experiment Run</label>
+                {selectedExp && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Are you sure you want to delete experiment ${selectedExp}?`)) return;
+                      try {
+                        await fetch(`http://127.0.0.1:8000/api/results/${outputDir}/${selectedPipelineId}/${selectedExp}`, {
+                          method: 'DELETE'
+                        });
+                        setSelectedExp(null);
+                        setRefreshCounter(c => c + 1);
+                        fetchExperiments();
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--accent-error)',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: 0
+                    }}
+                    title="Delete Experiment"
+                  >
+                    🗑️ <span style={{ textDecoration: 'underline' }}>Delete</span>
+                  </button>
+                )}
+              </div>
               <select 
                 className="form-select" 
                 value={selectedExp || ''} 
