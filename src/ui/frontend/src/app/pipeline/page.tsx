@@ -66,6 +66,23 @@ export default function PipelinePage() {
     }
   };
 
+  const handleDeletePipeline = async (e: React.MouseEvent, pipelineId: string) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete pipeline ${pipelineId}? This will remove all associated experiments.`)) return;
+    
+    try {
+      await fetch(`http://127.0.0.1:8000/api/pipeline/${pipelineId}`, {
+        method: 'DELETE'
+      });
+      if (selectedPipelineId === pipelineId) {
+        setSelectedPipelineId(null);
+      }
+      fetchExperiments();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const toggleStep = (step: number) => {
     setSelectedSteps(prev =>
       prev.includes(step) ? prev.filter(s => s !== step) : [...prev, step].sort()
@@ -139,16 +156,33 @@ export default function PipelinePage() {
                     transition: 'all var(--transition-fast)'
                   }}
                 >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: selectedPipelineId === exp.pipeline_id ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: selectedPipelineId === exp.pipeline_id ? 600 : 400 }}>
-                      {exp.pipeline_id} {i === 0 && <span style={{ marginLeft: '0.5rem', fontSize: '0.65rem', background: 'var(--accent-primary)', color: 'white', padding: '0.1rem 0.3rem', borderRadius: 'var(--radius-sm)', fontWeight: 'bold' }}>LATEST</span>}
+                  <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: selectedPipelineId === exp.pipeline_id ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: selectedPipelineId === exp.pipeline_id ? 600 : 400 }}>
+                        {exp.pipeline_id} {i === 0 && <span style={{ marginLeft: '0.5rem', fontSize: '0.65rem', background: 'var(--accent-primary)', color: 'white', padding: '0.1rem 0.3rem', borderRadius: 'var(--radius-sm)', fontWeight: 'bold' }}>LATEST</span>}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                        {getParamSummary(exp)}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>
+                        {formatDate(exp.created_at)}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
-                      {getParamSummary(exp)}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>
-                      {formatDate(exp.created_at)}
-                    </div>
+                    <button
+                      onClick={(e) => handleDeletePipeline(e, exp.pipeline_id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--accent-error)',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        opacity: selectedPipelineId === exp.pipeline_id ? 1 : 0.5,
+                        transition: 'opacity var(--transition-fast)'
+                      }}
+                      title="Delete Pipeline"
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
               ))}

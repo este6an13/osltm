@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter
-from pydantic import BaseModel
 from src.ui.backend.services.runner import runner
+import shutil
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(tags=["pipeline"])
 
@@ -61,3 +62,26 @@ async def get_active_experiment():
     if active is None:
         return {"pipeline_id": None, "message": "No pipeline runs found"}
     return active
+
+
+@router.delete("/{pipeline_id}")
+async def delete_pipeline(pipeline_id: str):
+    """Delete a pipeline and all its associated experiments."""
+    if not pipeline_id.startswith("pipeline_"):
+        raise HTTPException(status_code=400, detail="Invalid pipeline ID")
+    
+    # 1. Delete data directory
+    pipeline_dir = DATA_BASE / pipeline_id
+    if pipeline_dir.exists() and pipeline_dir.is_dir():
+        shutil.rmtree(pipeline_dir)
+        
+    # 2. Delete all results directories for this pipeline
+    results_base = Path("src/workflow/results")
+    if results_base.exists():
+        for output_dir in results_base.iterdir():
+            if output_dir.is_dir():
+                pipeline_res_dir = output_dir / pipeline_id
+                if pipeline_res_dir.exists() and pipeline_res_dir.is_dir():
+                    shutil.rmtree(pipeline_res_dir)
+                    
+    return {"status": "deleted", "pipeline_id": pipeline_id}
