@@ -288,8 +288,8 @@ SCRIPTS = {
     ),
     "models/avg_profile/step2_simulate": ScriptDef(
         module="src.workflow.scripts.models.avg_profile.step2_simulate",
-        name="Avg Profile - Step 2: Simulate",
-        description="Simulate synthetic days using Poisson or Negative Binomial distributions based on historical averages.",
+        name="Avg Profile - Step 2: Simulate & Diagnostics",
+        description="Simulate synthetic days and automatically generate diagnostic envelope plots against test data.",
         category="models/avg_profile",
         output_dir="avg_profile",
         depends_on="avg_profile",
@@ -300,21 +300,6 @@ SCRIPTS = {
             ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="dist_type", type="choice", choices=["poisson", "neg_binomial"], default="poisson"),
             ScriptParam(name="n_days", type="int", default=30),
-        ]
-    ),
-    "models/avg_profile/step3_diagnostics": ScriptDef(
-        module="src.workflow.scripts.models.avg_profile.step3_diagnostics",
-        name="Avg Profile - Step 3: Diagnostics",
-        description="Generate envelope plots comparing actual test data against historical simulations.",
-        category="models/avg_profile",
-        output_dir="avg_profile",
-        depends_on="avg_profile",
-        input_arg="--fit_dir",
-        params=[
-            ScriptParam(name="stations", type="station_list"),
-            ScriptParam(name="day_types", type="multi_choice", choices=["WD", "SA", "SU", "HO"], default=["WD", "SA", "SU", "HO"]),
-            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
-            ScriptParam(name="dist_type", type="choice", choices=["poisson", "neg_binomial"], default="poisson"),
         ]
     ),
 }
