@@ -35,5 +35,15 @@
         "cutoff_date": "2025-11-30",
         "output_dir": "src/workflow/results/avg_profile",
         "min_days": 5
+    },
+    "lgcp": {
+        "cutoff_date": "2025-11-30",
+        "output_dir": "src/workflow/results/lgcp_backtest",
+        "min_days_fit": 10,
+        "min_days_sim": 5
+    },
+    "hawkes": {
+        "cutoff_date": "2025-11-30",
+        "output_dir": "src/workflow/results/hawkes_backtest"
     }
 }

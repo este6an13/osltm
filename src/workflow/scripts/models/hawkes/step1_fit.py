@@ -122,6 +122,7 @@ def run_hawkes_fit(
     count_type: str = "checkins",
     seed: int = 42,
     output_dir: Optional[Path] = None,
+    cutoff_date: Optional[str] = None,
 ):
     with open(params_path) as f:
         params = json.load(f)
@@ -136,6 +137,12 @@ def run_hawkes_fit(
     
     if not sampled_dates or not sampled_stations:
         raise ValueError("No sampled dates/stations.")
+
+    if cutoff_date is not None:
+        cutoff_str = cutoff_date.replace("-", "")
+        train_dates = [d for d in sampled_dates if d <= cutoff_str]
+        print(f"   Training dates after cutoff {cutoff_date}: {len(train_dates)} (from {len(sampled_dates)})")
+        sampled_dates = train_dates
 
     if date_percentage < 1.0:
         import random
@@ -316,6 +323,12 @@ if __name__ == "__main__":
     parser.add_argument("--date_percentage", type=float, default=1.0, help="Fraction of dates to sample for faster testing")
     parser.add_argument("--count_type", default="checkins", choices=["checkins", "checkouts"])
     parser.add_argument("--output_dir", type=str, default=None, help="Output directory")
+    parser.add_argument(
+        "--cutoff_date",
+        type=str,
+        default=None,
+        help="YYYY-MM-DD cutoff for training data (filters to dates <= cutoff)",
+    )
     args = parser.parse_args()
     run_hawkes_fit(
         Path(args.params),
@@ -323,4 +336,5 @@ if __name__ == "__main__":
         date_percentage=args.date_percentage,
         count_type=args.count_type,
         output_dir=Path(args.output_dir) if args.output_dir else None,
+        cutoff_date=args.cutoff_date,
     )

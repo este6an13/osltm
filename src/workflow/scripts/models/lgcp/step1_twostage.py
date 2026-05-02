@@ -414,6 +414,7 @@ def run_lgcp_twostage(
     params_path: Optional[Path] = None,
     station_codes: Optional[list[str]] = None,
     min_days: int = 10,
+    cutoff_date: Optional[str] = None,
 ) -> dict:
     """
     Run LGCP two-stage estimation for all (station, day_type) pairs.
@@ -438,6 +439,10 @@ def run_lgcp_twostage(
     time_min = step4_params.get("time_min", 400)
     time_max = step4_params.get("time_max", 2300)
     time_step = step4_params.get("time_step", 15)
+
+    lgcp_params = params.get("lgcp", {})
+    if cutoff_date is None:
+        cutoff_date = lgcp_params.get("cutoff_date")
 
     persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
@@ -466,6 +471,12 @@ def run_lgcp_twostage(
     df = data[count_type]
     if df.empty:
         raise ValueError(f"Empty DataFrame for {count_type}")
+
+    if cutoff_date is not None:
+        df["date_str"] = df.apply(lambda r: f"{int(r['year']):04d}-{int(r['month']):02d}-{int(r['day']):02d}", axis=1)
+        train_len = len(df)
+        df = df[df["date_str"] <= cutoff_date].copy()
+        print(f"   Training data after cutoff {cutoff_date}: {len(df)} records (from {train_len})")
 
     time_cols = sort_time_columns([c for c in df.columns if c.startswith("t_")])
     K = len(time_cols)
@@ -676,6 +687,12 @@ if __name__ == "__main__":
         default=10,
         help="Minimum replicate days required per (station, day_type) (default: 10)",
     )
+    parser.add_argument(
+        "--cutoff_date",
+        type=str,
+        default=None,
+        help="YYYY-MM-DD cutoff for training data (filters to dates <= cutoff)",
+    )
 
     args = parser.parse_args()
 
@@ -685,6 +702,7 @@ if __name__ == "__main__":
         params_path=Path(args.params),
         station_codes=args.stations,
         min_days=args.min_days,
+        cutoff_date=args.cutoff_date,
     )
 
     print(f"\n📊 Generated LGCP two-stage estimation for {args.count_type}")

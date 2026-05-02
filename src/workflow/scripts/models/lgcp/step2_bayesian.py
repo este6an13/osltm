@@ -374,6 +374,7 @@ def run_lgcp_bayesian(
     station_codes: Optional[list[str]] = None,
     min_days: int = 10,
     phase2_dir: Optional[Path] = None,
+    cutoff_date: Optional[str] = None,
 ) -> dict:
     """
     Run full Bayesian LGCP via Laplace approximation.
@@ -390,6 +391,10 @@ def run_lgcp_bayesian(
     time_min = step4_params.get("time_min", 400)
     time_max = step4_params.get("time_max", 2300)
     time_step = step4_params.get("time_step", 15)
+
+    lgcp_params = params.get("lgcp", {})
+    if cutoff_date is None:
+        cutoff_date = lgcp_params.get("cutoff_date")
     # Phase 2 GP was fitted to log(counts per bin), so exp(z) = expected
     # count per bin, NOT a rate per minute.  delta_t = 1.0 keeps the
     # Poisson likelihood in count space: N_k ~ Poisson(exp(z_k) · 1).
@@ -444,6 +449,12 @@ def run_lgcp_bayesian(
     df = data[count_type]
     if df.empty:
         raise ValueError(f"Empty DataFrame for {count_type}")
+
+    if cutoff_date is not None:
+        df["date_str"] = df.apply(lambda r: f"{int(r['year']):04d}-{int(r['month']):02d}-{int(r['day']):02d}", axis=1)
+        train_len = len(df)
+        df = df[df["date_str"] <= cutoff_date].copy()
+        print(f"   Training data after cutoff {cutoff_date}: {len(df)} records (from {train_len})")
 
     time_cols = sort_time_columns([c for c in df.columns if c.startswith("t_")])
     K = len(time_cols)
@@ -662,6 +673,12 @@ if __name__ == "__main__":
         default="src/workflow/results/lgcp_twostage",
         help="Directory with Phase 2 results (default: src/workflow/results/lgcp_twostage)",
     )
+    parser.add_argument(
+        "--cutoff_date",
+        type=str,
+        default=None,
+        help="YYYY-MM-DD cutoff for training data (filters to dates <= cutoff)",
+    )
 
     args = parser.parse_args()
 
@@ -672,6 +689,7 @@ if __name__ == "__main__":
         station_codes=args.stations,
         min_days=args.min_days,
         phase2_dir=Path(args.phase2_dir) if args.phase2_dir else None,
+        cutoff_date=args.cutoff_date,
     )
 
     print(f"\n📊 Generated Bayesian LGCP analysis for {args.count_type}")
