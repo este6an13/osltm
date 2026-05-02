@@ -30,5 +30,10 @@
         "delta_minutes": 1
     },
     "sampled_dates": null,
-    "sampled_stations": null
+    "sampled_stations": null,
+    "avg_profile": {
+        "cutoff_date": "2025-11-30",
+        "output_dir": "src/workflow/results/avg_profile",
+        "min_days": 5
+    }
 }
