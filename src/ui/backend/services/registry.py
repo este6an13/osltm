@@ -203,6 +203,9 @@ SCRIPTS = {
         output_dir="lgcp_twostage",
         params=[
             ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="min_days", type="int", default=10, description="Min replicate days per (station, day_type)"),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
         ]
     ),
     "models/lgcp/step2_bayesian": ScriptDef(
@@ -217,6 +220,7 @@ SCRIPTS = {
             ScriptParam(name="stations", type="station_list"),
             ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="min_days", type="int", default=10, description="Min replicate days per (station, day_type)"),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
         ]
     ),
     "models/lgcp/step3_gof": ScriptDef(
@@ -232,6 +236,25 @@ SCRIPTS = {
             ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="min_days", type="int", default=5),
             ScriptParam(name="n_mc", type="int", default=500, description="Monte Carlo samples for PLN CDF"),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
+        ]
+    ),
+    "models/lgcp/step5_simulate_backtest": ScriptDef(
+        module="src.workflow.scripts.models.lgcp.step5_simulate_backtest",
+        name="LGCP - Step 5: Backtesting Sim & Diagnostics",
+        description="Cutoff-aware simulation and diagnostics. Prior and/or posterior paths with envelope plots against post-cutoff data. Requires Phase 2 kernel params (+ Phase 3 Bayesian for posterior sim_type).",
+        category="models/lgcp",
+        output_dir="lgcp_backtest",
+        depends_on="lgcp_twostage",
+        input_arg="--phase2_dir",
+        params=[
+            ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="day_types", type="multi_choice", choices=["WD", "SA", "SU", "HO"], default=["WD", "SA", "SU", "HO"]),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="sim_type", type="choice", choices=["prior", "posterior", "both"], default="both"),
+            ScriptParam(name="n_days", type="int", default=30, description="Simulated days per station/day_type"),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
+            ScriptParam(name="bayesian_dir", type="path", default=None, description="Path to Phase 3 (Bayesian) results dir containing lgcp_posterior_params_*.csv. Required when sim_type is posterior or both."),
         ]
     ),
     
@@ -244,7 +267,9 @@ SCRIPTS = {
         output_dir="hawkes_fit",
         params=[
             ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="date_percentage", type="date_percentage", default=0.1),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
         ]
     ),
     "models/hawkes/step2_diagnostics": ScriptDef(
@@ -271,6 +296,22 @@ SCRIPTS = {
             ScriptParam(name="stations", type="station_list"),
             ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
             ScriptParam(name="n_days", type="int", default=5),
+        ]
+    ),
+    "models/hawkes/step4_simulate_backtest": ScriptDef(
+        module="src.workflow.scripts.models.hawkes.step4_simulate_backtest",
+        name="Hawkes - Step 4: Backtesting Sim & Diagnostics",
+        description="Cutoff-aware Hawkes simulation and diagnostics. Uses median params across pre-cutoff days to simulate, then generates envelope plots against post-cutoff data.",
+        category="models/hawkes",
+        output_dir="hawkes_backtest",
+        depends_on="hawkes_fit",
+        input_arg="--fit_dir",
+        params=[
+            ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="day_types", type="multi_choice", choices=["WD", "SA", "SU", "HO"], default=["WD", "SA", "SU", "HO"]),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="n_days", type="int", default=30, description="Simulated days per station/day_type"),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
         ]
     ),
     "models/avg_profile/step1_fit": ScriptDef(

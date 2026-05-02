@@ -257,6 +257,7 @@ def run_lgcp_gof(
     phase2_dir: Optional[Path] = None,
     min_days: int = 5,
     n_mc: int = 500,
+    cutoff_date: Optional[str] = None,
 ) -> dict:
     """
     Run PIT-based goodness-of-fit: Poisson (NHPP) vs PoissonLogNormal (LGCP).
@@ -271,6 +272,10 @@ def run_lgcp_gof(
     time_min = step4.get("time_min", 400)
     time_max = step4.get("time_max", 2300)
     time_step = step4.get("time_step", 15)
+
+    lgcp_params = params.get("lgcp", {})
+    if cutoff_date is None:
+        cutoff_date = lgcp_params.get("cutoff_date")
 
     persistence_dir = params_path.parent
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
@@ -312,6 +317,12 @@ def run_lgcp_gof(
     df = data[count_type]
     time_cols = sort_time_columns([c for c in df.columns if c.startswith("t_")])
     K = len(time_cols)
+
+    if cutoff_date is not None:
+        df["date_str"] = df.apply(lambda r: f"{int(r['year']):04d}-{int(r['month']):02d}-{int(r['day']):02d}", axis=1)
+        train_len = len(df)
+        df = df[df["date_str"] <= cutoff_date].copy()
+        print(f"   Training data after cutoff {cutoff_date}: {len(df)} records (from {train_len})")
 
     if output_dir is None:
         output_dir = Path("src/workflow/results/lgcp_gof")
@@ -444,6 +455,12 @@ if __name__ == "__main__":
     parser.add_argument("--n_mc", type=int, default=500,
                         help="MC samples for PLN CDF (default: 500)")
     parser.add_argument("--min_days", type=int, default=5)
+    parser.add_argument(
+        "--cutoff_date",
+        type=str,
+        default=None,
+        help="YYYY-MM-DD cutoff for training data (filters to dates <= cutoff)",
+    )
 
     args = parser.parse_args()
 
@@ -455,4 +472,5 @@ if __name__ == "__main__":
         phase2_dir=Path(args.phase2_dir),
         min_days=args.min_days,
         n_mc=args.n_mc,
+        cutoff_date=args.cutoff_date,
     )

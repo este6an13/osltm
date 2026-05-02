@@ -32,7 +32,13 @@ export default function ResultsViewer({ outputDir, experimentId }: ResultsViewer
 
   const fetchExperiments = () => {
     fetch(`http://127.0.0.1:8000/api/results/${outputDir}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          console.error(`Results not available for ${outputDir}`);
+          return [];
+        }
+        return res.json();
+      })
       .then((data: ExperimentMeta[]) => {
         setExperiments(data);
         // Auto-select logic
