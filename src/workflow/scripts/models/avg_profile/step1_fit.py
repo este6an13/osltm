@@ -19,6 +19,8 @@ def run_avg_profile_fit(
     params_path: Optional[Path] = None,
     cutoff_date: Optional[str] = None,
     min_days: int = 5,
+    station_codes: Optional[list[str]] = None,
+    day_types: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """
     Fits the average profile model by computing mean and std per station/day_type.
@@ -34,6 +36,8 @@ def run_avg_profile_fit(
         cutoff_date = avg_params.get("cutoff_date")
     if output_dir is None:
         output_dir = Path(avg_params.get("output_dir", "src/workflow/results/avg_profile"))
+    else:
+        output_dir = Path(output_dir)
     if min_days is None:
         min_days = avg_params.get("min_days", 5)
 
@@ -43,9 +47,10 @@ def run_avg_profile_fit(
     time_step = step4_params.get("time_step", 15)
 
     persistence_dir = params_path.parent
-    sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
+    _, sampled_stations = load_persisted_data(persistence_dir)
     
-    station_codes = [s["code"] for s in sampled_stations] if sampled_stations else None
+    if not station_codes and sampled_stations:
+        station_codes = [s["code"] for s in sampled_stations]
 
     print(f"Loading {count_type} data for training (up to {cutoff_date})...")
     
@@ -58,6 +63,10 @@ def run_avg_profile_fit(
     )
     
     df = data[count_type]
+    
+    # Filter by day types if provided
+    if day_types and len(day_types) > 0:
+        df = df[df["date_type"].isin(day_types)].copy()
     
     # Create a proper date column for filtering
     df["date_str"] = df.apply(lambda r: f"{int(r['year']):04d}-{int(r['month']):02d}-{int(r['day']):02d}", axis=1)
@@ -105,6 +114,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fit Average Profile Baseline Model")
     parser.add_argument("--count_type", choices=["checkins", "checkouts"], default="checkins")
     parser.add_argument("--cutoff_date", type=str, help="YYYY-MM-DD cutoff for training")
+    parser.add_argument("--params", type=str, help="Path to params.json")
+    parser.add_argument("--output_dir", type=str, help="Output directory")
+    parser.add_argument("--stations", nargs="+", help="Subset of station codes")
+    parser.add_argument("--day_types", nargs="+", help="Subset of day types (WD, SA, SU, HO)")
     
     args = parser.parse_args()
-    run_avg_profile_fit(count_type=args.count_type, cutoff_date=args.cutoff_date)
+    run_avg_profile_fit(
+        count_type=args.count_type, 
+        cutoff_date=args.cutoff_date,
+        params_path=Path(args.params) if args.params else None,
+        output_dir=args.output_dir,
+        station_codes=args.stations,
+        day_types=args.day_types
+    )

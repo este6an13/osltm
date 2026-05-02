@@ -18,7 +18,7 @@ interface UpstreamExp {
   exit_code?: number;
 }
 
-export default function AnalysisPage({ category }: { category: 'profiles' | 'intensity' | 'models/hawkes' | 'models/lgcp' }) {
+export default function AnalysisPage({ category }: { category: 'profiles' | 'intensity' | 'models/hawkes' | 'models/lgcp' | 'models/avg_profile' }) {
   const [scripts, setScripts] = useState<any>({});
   const [selectedScript, setSelectedScript] = useState<string | null>(null);
   const [scriptParams, setScriptParams] = useState<any>({});
@@ -156,6 +156,7 @@ export default function AnalysisPage({ category }: { category: 'profiles' | 'int
     intensity: 'Intensity Analysis',
     'models/hawkes': 'Hawkes Process',
     'models/lgcp': 'LGCP Pipeline',
+    'models/avg_profile': 'Average Profile Baseline',
   }[category];
 
   return (

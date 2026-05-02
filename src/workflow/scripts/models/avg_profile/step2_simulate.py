@@ -44,27 +44,48 @@ def run_avg_profile_simulate(
     count_type: Literal["checkins", "checkouts"] = "checkins",
     dist_type: Literal["poisson", "neg_binomial"] = "poisson",
     n_days: int = 30,
-    output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
+    output_dir: Optional[Path] = None,
+    fit_dir: Optional[Path] = None,
+    station_codes: Optional[list[str]] = None,
+    day_types: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """
-    Simulates days using the fitted profiles.
+    Simulates days based on the fitted average profiles.
     """
     if params_path is None:
         params_path = Path("src/workflow/params.json")
-    
+        
     with open(params_path) as f:
         params = json.load(f)
-    
+        
     avg_params = params.get("avg_profile", {})
     if output_dir is None:
         output_dir = Path(avg_params.get("output_dir", "src/workflow/results/avg_profile"))
+    else:
+        output_dir = Path(output_dir)
+        
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    params_file = output_dir / f"avg_profile_params_{count_type}.csv"
-    if not params_file.exists():
-        raise FileNotFoundError(f"Params file not found: {params_file}. Run step1_fit.py first.")
+    # Load parameters from fit_dir if provided, else from output_dir
+    if fit_dir is None:
+        fit_dir = output_dir
+    else:
+        fit_dir = Path(fit_dir)
+
+    param_file = fit_dir / f"avg_profile_params_{count_type}.csv"
+    if not param_file.exists():
+        raise FileNotFoundError(f"Average profile parameters not found: {param_file}. Run fit step first.")
+        
+    df_params = pd.read_csv(param_file)
+    df_params["station_code"] = df_params["station_code"].astype(str).str.zfill(5)
     
-    df_params = pd.read_csv(params_file)
+    # Filter by stations/day types if provided
+    if station_codes and len(station_codes) > 0:
+        df_params = df_params[df_params["station_code"].isin(station_codes)].copy()
+    if day_types and len(day_types) > 0:
+        df_params = df_params[df_params["day_type"].isin(day_types)].copy()
+        
     time_cols = [c.replace("_mean", "") for c in df_params.columns if c.endswith("_mean")]
     
     all_simulations = []
@@ -75,25 +96,23 @@ def run_avg_profile_simulate(
         station_code = row["station_code"]
         day_type = row["day_type"]
         
-        means = np.array([row[f"{c}_mean"] for c in time_cols])
-        stds = np.array([row[f"{c}_std"] for c in time_cols])
+        means = row[[f"{c}_mean" for c in time_cols]].values.astype(float)
+        stds = row[[f"{c}_std" for c in time_cols]].values.astype(float)
         
         for d in range(n_days):
             counts = simulate_day(means, stds, dist_type=dist_type)
             
-            sim_row = {
+            res = {
                 "station_code": station_code,
                 "day_type": day_type,
-                "sim_day": d,
-                "dist_type": dist_type
+                "sim_day": d
             }
             for i, col in enumerate(time_cols):
-                sim_row[col] = counts[i]
-            
-            all_simulations.append(sim_row)
+                res[col] = counts[i]
+                
+            all_simulations.append(res)
             
     sim_df = pd.DataFrame(all_simulations)
-    
     output_file = output_dir / f"avg_profile_simulations_{count_type}_{dist_type}.csv"
     sim_df.to_csv(output_file, index=False)
     
@@ -106,10 +125,20 @@ if __name__ == "__main__":
     parser.add_argument("--count_type", choices=["checkins", "checkouts"], default="checkins")
     parser.add_argument("--dist_type", choices=["poisson", "neg_binomial"], default="poisson")
     parser.add_argument("--n_days", type=int, default=30, help="Number of days to simulate per station/day_type")
+    parser.add_argument("--params", type=str, help="Path to params.json")
+    parser.add_argument("--output_dir", type=str, help="Output directory")
+    parser.add_argument("--fit_dir", type=str, help="Directory containing fitted parameters")
+    parser.add_argument("--stations", nargs="+", help="Subset of station codes")
+    parser.add_argument("--day_types", nargs="+", help="Subset of day types")
     
     args = parser.parse_args()
     run_avg_profile_simulate(
         count_type=args.count_type, 
         dist_type=args.dist_type, 
-        n_days=args.n_days
+        n_days=args.n_days,
+        params_path=Path(args.params) if args.params else None,
+        output_dir=args.output_dir,
+        fit_dir=args.fit_dir,
+        station_codes=args.stations,
+        day_types=args.day_types
     )

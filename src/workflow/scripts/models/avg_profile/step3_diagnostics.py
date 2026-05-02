@@ -71,41 +71,50 @@ def plot_envelope(
 def run_avg_profile_diagnostics(
     count_type: Literal["checkins", "checkouts"] = "checkins",
     dist_type: Literal["poisson", "neg_binomial"] = "poisson",
-    output_dir: Optional[Path] = None,
     params_path: Optional[Path] = None,
-):
+    output_dir: Optional[Path] = None,
+    fit_dir: Optional[Path] = None,
+    station_codes: Optional[list[str]] = None,
+    day_types: Optional[list[str]] = None,
+) -> None:
     """
-    Generates diagnostics plots.
+    Runs diagnostics (envelope plots) for the average profile model.
     """
     if params_path is None:
         params_path = Path("src/workflow/params.json")
     
     with open(params_path) as f:
         params = json.load(f)
-    
+        
     avg_params = params.get("avg_profile", {})
-    cutoff_date = avg_params.get("cutoff_date")
+    cutoff_date = avg_params.get("cutoff_date", "2025-11-30")
+    
     if output_dir is None:
         output_dir = Path(avg_params.get("output_dir", "src/workflow/results/avg_profile"))
+    else:
+        output_dir = Path(output_dir)
+        
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Load actual data
-    step4_params = params.get("step4", {})
-    time_min = step4_params.get("time_min", 400)
-    time_max = step4_params.get("time_max", 2300)
-    time_step = step4_params.get("time_step", 15)
-    
-    persistence_dir = params_path.parent
+    # simulations are expected in fit_dir if provided, else output_dir
+    search_dir = Path(fit_dir) if fit_dir else output_dir
+
+    persistence_dir = params_path.parent if params_path else Path("src/workflow/data")
     _, sampled_stations = load_persisted_data(persistence_dir)
-    station_codes = [s["code"] for s in sampled_stations] if sampled_stations else None
+    
+    if not station_codes and sampled_stations:
+        station_codes = [s["code"] for s in sampled_stations]
 
     print(f"Loading actual data for backtesting (after {cutoff_date})...")
     data = load_data(
         station_codes=station_codes,
         include_checkins=(count_type == "checkins"),
         include_checkouts=(count_type == "checkouts"),
-        time_min=time_min, time_max=time_max, time_step=time_step,
+        persistence_dir=persistence_dir
     )
     df = data[count_type]
+    
+    # Create a proper date column for filtering
     df["date_str"] = df.apply(lambda r: f"{int(r['year']):04d}-{int(r['month']):02d}-{int(r['day']):02d}", axis=1)
     test_df = df[df["date_str"] > cutoff_date].copy()
     
@@ -114,24 +123,26 @@ def run_avg_profile_diagnostics(
         return
 
     # Load simulated data
-    sim_file = output_dir / f"avg_profile_simulations_{count_type}_{dist_type}.csv"
+    sim_file = search_dir / f"avg_profile_simulations_{count_type}_{dist_type}.csv"
     if not sim_file.exists():
-        raise FileNotFoundError(f"Simulations not found: {sim_file}. Run step2_simulate.py first.")
+        raise FileNotFoundError(f"Simulated data not found: {sim_file}. Run simulation step first.")
+        
     sim_df = pd.read_csv(sim_file)
+    sim_df["station_code"] = sim_df["station_code"].astype(str).str.zfill(5)
     
-    time_cols = [c for c in test_df.columns if c.startswith("t_")]
-    
-    # Convert time_cols to hours for plotting
-    def to_hours(tc):
-        v = int(tc.replace("t_", ""))
+    time_cols = [c for c in sim_df.columns if c.startswith("t_")]
+    def to_hours(v):
+        v = int(v.replace("t_", ""))
         return v // 100 + (v % 100) / 60.0
     time_hours = np.array([to_hours(tc) for tc in time_cols])
     
     print(f"Generating envelope plots in {output_dir}...")
     
     stations = test_df["station_code"].unique()
+    if not day_types or len(day_types) == 0:
+        day_types = test_df["date_type"].unique()
+    
     for sc in stations:
-        day_types = test_df[test_df["station_code"] == sc]["date_type"].unique()
         for dt in day_types:
             plot_envelope(test_df, sim_df, sc, dt, time_cols, time_hours, output_dir, count_type, dist_type)
 
@@ -142,6 +153,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Diagnostics for Average Profile Baseline Model")
     parser.add_argument("--count_type", choices=["checkins", "checkouts"], default="checkins")
     parser.add_argument("--dist_type", choices=["poisson", "neg_binomial"], default="poisson")
+    parser.add_argument("--params", type=str, help="Path to params.json")
+    parser.add_argument("--output_dir", type=str, help="Output directory")
+    parser.add_argument("--fit_dir", type=str, help="Directory containing simulated data")
+    parser.add_argument("--stations", nargs="+", help="Subset of station codes")
+    parser.add_argument("--day_types", nargs="+", help="Subset of day types")
     
     args = parser.parse_args()
-    run_avg_profile_diagnostics(count_type=args.count_type, dist_type=args.dist_type)
+    run_avg_profile_diagnostics(
+        count_type=args.count_type, 
+        dist_type=args.dist_type,
+        params_path=Path(args.params) if args.params else None,
+        output_dir=args.output_dir,
+        fit_dir=args.fit_dir,
+        station_codes=args.stations,
+        day_types=args.day_types
+    )
