@@ -55,7 +55,22 @@ export default function Dashboard() {
           <button className="btn btn-secondary" onClick={() => window.location.href='/models/hawkes'}>
             Hawkes Modeling
           </button>
+          <button className="btn btn-primary" onClick={() => window.location.href='/realtime'}
+            style={{ background: '#155724', borderColor: '#0f3d18' }}>
+            ⏱ Real-Time Simulation
+          </button>
         </div>
+      </div>
+
+      <div className="card" style={{ borderLeft: '4px solid #004085', marginTop: '0.5rem' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Real-Time Module</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+          Simulate passenger arrivals in real time using Hawkes, LGCP, or Average Profile models.
+          Compare against observed data and apply live Bayesian adaptive correction to look-ahead forecasts.
+        </p>
+        <button className="btn btn-primary" onClick={() => window.location.href='/realtime'}>
+          Open Real-Time Simulation →
+        </button>
       </div>
     </div>
   );
