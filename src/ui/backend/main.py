@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.ui.backend.routers import pipeline, analysis, models, results, status
+from src.ui.backend.routers.realtime import router as realtime_router, realtime_ws_endpoint
 from src.ui.backend.ws import websocket_endpoint
 
 app = FastAPI(title="OSLTM Workflow API")
@@ -34,8 +35,10 @@ app.include_router(pipeline.router, prefix="/api/pipeline", tags=["pipeline"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["analysis"])
 app.include_router(models.router, prefix="/api/models", tags=["models"])
 app.include_router(results.router, prefix="/api/results", tags=["results"])
+app.include_router(realtime_router, prefix="/api/realtime", tags=["realtime"])
 
 app.add_api_websocket_route("/ws/runs/{run_id}", websocket_endpoint)
+app.add_api_websocket_route("/ws/realtime/{session_id}", realtime_ws_endpoint)
 
 if __name__ == "__main__":
     import uvicorn
