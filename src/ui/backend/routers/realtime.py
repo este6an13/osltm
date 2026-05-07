@@ -91,6 +91,26 @@ def _get_pipeline_stations() -> list[dict]:
     return []
 
 
+def _get_fitted_cutoff_date() -> Optional[str]:
+    """Finds the cutoff_date from the most recent model fit metadata."""
+    for model_dir in ["lgcp_twostage", "hawkes_fit"]:
+        base = RESULTS_BASE / model_dir
+        if not base.exists():
+            continue
+        meta_files = sorted(base.rglob("run_meta.json"), reverse=True)
+        for mf in meta_files:
+            try:
+                import json
+                with open(mf, "r") as f:
+                    meta = json.load(f)
+                    params = meta.get("params", {})
+                    if "cutoff_date" in params:
+                        return str(params["cutoff_date"]).replace("-", "")
+            except Exception:
+                continue
+    return None
+
+
 # ---------------------------------------------------------------------------
 # REST endpoints
 # ---------------------------------------------------------------------------
@@ -100,7 +120,8 @@ async def get_available_dates():
     """Return all dates that have real data in the DB, with day_type."""
     try:
         dates = available_dates_with_day_type()
-        return {"dates": dates}
+        cutoff = _get_fitted_cutoff_date()
+        return {"dates": dates, "cutoff_date": cutoff}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

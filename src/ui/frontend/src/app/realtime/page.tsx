@@ -56,7 +56,8 @@ export default function RealtimePage() {
   const [speed, setSpeedLocal] = useState(1);
   const [selectedStation, setSelectedStation] = useState<string>('');
   const [availDates, setAvailDates] = useState<Record<string, string>>({});
-  const [inventory, setInventory] = useState<{station_code: string; station_name: string; day_types: Record<string, string[]>}[]>([]);
+  const [cutoffDate, setCutoffDate] = useState<string | null>(null);
+  const [inventory, setInventory] = useState<{ station_code: string; station_name: string; day_types: Record<string, string[]> }[]>([]);
   const [cfg, setCfg] = useState<SessionConfig>({
     date_str: '', day_type: 'WD', station_codes: [], model: '',
     adaptation_method: 'bayesian', clock_start_hhmm: 400,
@@ -67,7 +68,10 @@ export default function RealtimePage() {
 
   // Load dates + inventory on mount
   useEffect(() => {
-    fetch(`${API}/api/realtime/dates`).then(r => r.json()).then(d => setAvailDates(d.dates || {})).catch(() => { });
+    fetch(`${API}/api/realtime/dates`).then(r => r.json()).then(d => {
+      setAvailDates(d.dates || {});
+      setCutoffDate(d.cutoff_date || null);
+    }).catch(() => { });
     fetch(`${API}/api/realtime/inventory`).then(r => r.json()).then(d => {
       const inv = d.inventory || [];
       setInventory(inv);
@@ -191,9 +195,10 @@ export default function RealtimePage() {
             <select className="form-select" value={cfg.date_str}
               onChange={e => setCfg(c => ({ ...c, date_str: e.target.value }))}>
               <option value="">-- No Real Data (Simulation Only) --</option>
-              {validDates.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
+              {validDates.map(d => {
+                const label = cutoffDate ? (d <= cutoffDate ? `${d} (Training)` : `${d}  ✨ (Testing)`) : d;
+                return <option key={d} value={d}>{label}</option>;
+              })}
             </select>
           </div>
 
@@ -324,8 +329,8 @@ export default function RealtimePage() {
               {(state.meta?.station_codes || [sc]).map(s => {
                 const adapt = state.adaptation[s] || null;
                 const r = adapt?.ratios
-                    ? adapt.ratios.reduce((a, b) => a + b, 0) / adapt.ratios.length
-                    : adapt?.ratio ?? 1;
+                  ? adapt.ratios.reduce((a, b) => a + b, 0) / adapt.ratios.length
+                  : adapt?.ratio ?? 1;
                 const modelCount = (state.modelEvents[s] || []).length;
                 const correctedCount = Math.round(modelCount * r);
                 return (
@@ -395,7 +400,7 @@ export default function RealtimePage() {
       {/* ── RIGHT: Adaptation panel ── */}
       {state.sessionId && (
         <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          
+
           <div className="card" style={{ padding: '1rem', display: 'flex', justifyContent: 'center' }}>
             <ClockDisplay
               clockSec={state.clockSec}
