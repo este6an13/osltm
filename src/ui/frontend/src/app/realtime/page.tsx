@@ -57,11 +57,11 @@ export default function RealtimePage() {
   const [selectedStation, setSelectedStation] = useState<string>('');
   const [availDates, setAvailDates] = useState<Record<string, string>>({});
   const [cutoffDate, setCutoffDate] = useState<string | null>(null);
-  const [inventory, setInventory] = useState<{ station_code: string; station_name: string; day_types: Record<string, string[]> }[]>([]);
+  const [inventory, setInventory] = useState<{ station_code: string; station_name: string; count_types: Record<string, Record<string, string[]>> }[]>([]);
   const [cfg, setCfg] = useState<SessionConfig>({
     date_str: '', day_type: 'WD', station_codes: [], model: '',
     adaptation_method: 'bayesian', clock_start_hhmm: 400,
-    speed: 1, lookahead_min: 60, seed: 42,
+    speed: 1, lookahead_min: 60, seed: 42, count_type: 'checkins',
   });
   const feedRef = useRef<HTMLDivElement>(null);
   const [feed, setFeed] = useState<{ time: string; sc: string; src: string; t: number }[]>([]);
@@ -77,9 +77,10 @@ export default function RealtimePage() {
       setInventory(inv);
       if (inv.length > 0 && !cfg.station_codes.length) {
         const sc = inv[0].station_code;
-        const dt = Object.keys(inv[0].day_types)[0] || 'WD';
-        const mod = inv[0].day_types[dt] ? inv[0].day_types[dt][0] : '';
-        setCfg(c => ({ ...c, station_codes: [sc], day_type: dt, model: mod as any }));
+        const ct = 'checkins';
+        const dt = inv[0].count_types?.[ct] ? Object.keys(inv[0].count_types[ct])[0] || 'WD' : 'WD';
+        const mod = inv[0].count_types?.[ct]?.[dt] ? inv[0].count_types[ct][dt][0] : '';
+        setCfg(c => ({ ...c, station_codes: [sc], count_type: ct as any, day_type: dt, model: mod as any }));
       }
     }).catch(() => { });
   }, []);
@@ -116,8 +117,9 @@ export default function RealtimePage() {
   };
 
   const selectedInv = inventory.find(i => i.station_code === cfg.station_codes[0]);
-  const availableDayTypes = selectedInv ? Object.keys(selectedInv.day_types) : [];
-  const availableModels = selectedInv && cfg.day_type ? (selectedInv.day_types[cfg.day_type] || []) : [];
+  const currentCtData = selectedInv?.count_types?.[cfg.count_type] || {};
+  const availableDayTypes = Object.keys(currentCtData);
+  const availableModels = cfg.day_type ? (currentCtData[cfg.day_type] || []) : [];
   const validDates = Object.keys(availDates).filter(d => availDates[d] === cfg.day_type).sort().reverse();
 
   const sc = selectedStation || state.meta?.station_codes?.[0] || '';
@@ -141,14 +143,31 @@ export default function RealtimePage() {
           <div className="rt-section-title">Session Setup</div>
 
           <div className="form-group" style={{ marginBottom: '0.65rem' }}>
+            <label className="form-label">Direction</label>
+            <select className="form-select" value={cfg.count_type}
+              onChange={e => {
+                const ct = e.target.value as 'checkins' | 'checkouts';
+                const sc = cfg.station_codes[0] || '';
+                const inv = inventory.find(i => i.station_code === sc);
+                const dt = inv?.count_types?.[ct] ? Object.keys(inv.count_types[ct])[0] || 'WD' : 'WD';
+                const mod = inv?.count_types?.[ct]?.[dt] ? inv.count_types[ct][dt][0] : '';
+                setCfg(c => ({ ...c, count_type: ct, day_type: dt, model: mod as any, date_str: '' }));
+              }}>
+              <option value="checkins">Check-ins</option>
+              <option value="checkouts">Check-outs</option>
+            </select>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '0.65rem' }}>
             <label className="form-label">Station</label>
             <select className="form-select"
               value={cfg.station_codes[0] || ''}
               onChange={e => {
                 const sc = e.target.value;
                 const inv = inventory.find(i => i.station_code === sc);
-                const dt = inv ? Object.keys(inv.day_types)[0] : 'WD';
-                const mod = inv && inv.day_types[dt] ? inv.day_types[dt][0] : '';
+                const ct = cfg.count_type;
+                const dt = inv?.count_types?.[ct] ? Object.keys(inv.count_types[ct])[0] || 'WD' : 'WD';
+                const mod = inv?.count_types?.[ct]?.[dt] ? inv.count_types[ct][dt][0] : '';
                 setCfg(c => ({ ...c, station_codes: [sc], day_type: dt, model: mod as any, date_str: '' }));
               }}>
               <option value="" disabled>Select a station...</option>
@@ -167,7 +186,7 @@ export default function RealtimePage() {
               onChange={e => {
                 const dt = e.target.value;
                 const inv = inventory.find(i => i.station_code === cfg.station_codes[0]);
-                const mod = inv && inv.day_types[dt] ? inv.day_types[dt][0] : '';
+                const mod = inv?.count_types?.[cfg.count_type]?.[dt] ? inv.count_types[cfg.count_type][dt][0] : '';
                 setCfg(c => ({ ...c, day_type: dt, model: mod as any, date_str: '' }));
               }}>
               {availableDayTypes.map(dt => (

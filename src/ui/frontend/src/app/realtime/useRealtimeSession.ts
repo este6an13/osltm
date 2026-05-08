@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const API = 'http://127.0.0.1:8000';
-const WS  = 'ws://127.0.0.1:8000';
+const WS = 'ws://127.0.0.1:8000';
 
 // seconds from window start that represent the full observation day
 const WINDOW_START_SEC = (4 * 3600);   // 04:00
-const WINDOW_END_SEC   = (23 * 3600);  // 23:00
-const WINDOW_TOTAL     = WINDOW_END_SEC - WINDOW_START_SEC;
+const WINDOW_END_SEC = (23 * 3600);  // 23:00
+const WINDOW_TOTAL = WINDOW_END_SEC - WINDOW_START_SEC;
 
 export type ModelType = 'hawkes' | 'lgcp_prior' | 'lgcp_posterior' | 'avg_profile';
 export type AdaptationMethod = 'bayesian' | 'multiplicative' | 'hawkes_kappa' | 'trend';
@@ -23,6 +23,7 @@ export interface SessionConfig {
   speed: number;
   lookahead_min: number;
   seed: number;
+  count_type: 'checkins' | 'checkouts';
 }
 
 export interface ForecastBin {
@@ -107,10 +108,10 @@ export function useRealtimeSession(): [RealtimeState, RealtimeActions] {
     hasRealData: false,
   });
 
-  const wsRef        = useRef<WebSocket | null>(null);
-  const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const speedRef     = useRef<number>(1.0);
-  const clockSecRef  = useRef<number>(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const speedRef = useRef<number>(1.0);
+  const clockSecRef = useRef<number>(0);
   const sessionIdRef = useRef<string | null>(null);
 
   // -------------------------------------------------------------------------
@@ -134,21 +135,21 @@ export function useRealtimeSession(): [RealtimeState, RealtimeActions] {
         setState(s => {
           // Accumulate events
           const newModel: Record<string, number[]> = { ...s.modelEvents };
-          const newReal:  Record<string, number[]> = { ...s.realEvents };
+          const newReal: Record<string, number[]> = { ...s.realEvents };
 
           for (const [sc, ev] of Object.entries(data.model_events)) {
             newModel[sc] = [...(newModel[sc] || []), ...ev.model];
-            newReal[sc]  = [...(newReal[sc]  || []), ...ev.real];
+            newReal[sc] = [...(newReal[sc] || []), ...ev.real];
           }
 
           return {
             ...s,
             modelEvents: newModel,
             realEvents: newReal,
-            forecast:   data.forecast,
+            forecast: data.forecast,
             adaptation: data.adaptation,
             hasRealData: data.has_real_data,
-            clockSec:   data.t,
+            clockSec: data.t,
           };
         });
       } catch {
@@ -224,7 +225,7 @@ export function useRealtimeSession(): [RealtimeState, RealtimeActions] {
 
   const destroySession = useCallback(async () => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    if (wsRef.current)    { wsRef.current.close(); wsRef.current = null; }
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
     const sid = sessionIdRef.current;
     if (sid) {
       try { await fetch(`${API}/api/realtime/session/${sid}`, { method: 'DELETE' }); } catch { /* ignore */ }
@@ -272,7 +273,7 @@ export function useRealtimeSession(): [RealtimeState, RealtimeActions] {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (wsRef.current)    wsRef.current.close();
+      if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
@@ -290,7 +291,7 @@ export function secToWallClock(sec: number): string {
   const h = Math.floor(totalSec / 3600) % 24;
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 export function secToHourFloat(sec: number): number {

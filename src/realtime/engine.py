@@ -178,6 +178,7 @@ class RealtimeSession:
     day_type:      str          # WD / SA / SU / HO
     model:         ModelType
     station_codes: list[str]
+    count_type:    str          # checkins / checkouts
     clock_start_sec: float      # seconds from window start (0 = TIME_MIN)
     speed:         float        # 1.0 = real time
 
@@ -312,6 +313,7 @@ def create_session(
     station_codes:     list[str],
     model:             ModelType,
     day_type:          str,
+    count_type:        str = "checkins",
     date_str:          str = "",
     adaptation_method: AdaptationMethod = "bayesian",
     clock_start_hhmm:  int = TIME_MIN,      # e.g. 700 for 07:00
@@ -336,6 +338,7 @@ def create_session(
         day_type          = day_type,
         model             = model,
         station_codes     = station_codes,
+        count_type        = count_type,
         clock_start_sec   = clock_start_sec,
         speed             = speed,
         adaptation_method = adaptation_method,
@@ -347,7 +350,7 @@ def create_session(
     _generate_model_events(session, rng)
 
     # 3. Real events
-    real = load_real_events(date_str, station_codes)
+    real = load_real_events(date_str, station_codes, count_type)
     session.real_events   = real
     session.has_real_data = any(len(v) > 0 for v in real.values())
 
@@ -361,9 +364,10 @@ def _generate_model_events(session: RealtimeSession, rng: np.random.Generator) -
     model = session.model
     scs   = session.station_codes
     dt    = session.day_type
+    ct    = session.count_type
 
     if model == "hawkes":
-        params_map = load_hawkes_params(RESULTS_BASE, scs, dt)
+        params_map = load_hawkes_params(RESULTS_BASE, scs, dt, ct)
         # Build mu_blocks for each station from a uniform profile (conservative)
         for sc, p in params_map.items():
             p["mu_blocks"] = np.full(_N_BINS, 1.0 / (_N_BINS * _DT_SEC))
@@ -373,21 +377,21 @@ def _generate_model_events(session: RealtimeSession, rng: np.random.Generator) -
             session._hawkes_params[sc] = p
 
     elif model == "lgcp_prior":
-        params_map = load_lgcp_prior_params(RESULTS_BASE, scs, dt)
+        params_map = load_lgcp_prior_params(RESULTS_BASE, scs, dt, ct)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_lgcp_prior(p, rng)
             session._prior_means[sc] = np.exp(p["mu"])
             session._prior_vars[sc]  = np.exp(p["mu"])   # Poisson approx
 
     elif model == "lgcp_posterior":
-        params_map = load_lgcp_posterior_params(RESULTS_BASE, scs, dt)
+        params_map = load_lgcp_posterior_params(RESULTS_BASE, scs, dt, ct)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_lgcp_posterior(p, rng)
             session._prior_means[sc] = np.exp(p["z_map"])
             session._prior_vars[sc]  = np.exp(p["z_map"])
 
     elif model == "avg_profile":
-        params_map = load_avg_profile_params(RESULTS_BASE, scs, dt)
+        params_map = load_avg_profile_params(RESULTS_BASE, scs, dt, ct)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_avg_profile_day(p, rng)
             session._prior_means[sc] = p["means"]

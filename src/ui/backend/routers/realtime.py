@@ -59,6 +59,7 @@ class CreateSessionRequest(BaseModel):
     station_codes:     list[str]
     day_type:          str
     model:             str                     # hawkes | lgcp_prior | lgcp_posterior | avg_profile
+    count_type:        str   = "checkins"      # checkins | checkouts
     date_str:          str   = ""              # Optional YYYYMMDD
     adaptation_method: str   = "bayesian"      # bayesian | multiplicative | hawkes_kappa | trend
     clock_start_hhmm:  int   = 400             # e.g. 700 for 07:00
@@ -136,7 +137,7 @@ async def get_stations():
 async def get_inventory():
     """
     Returns full hierarchy of available fitted models:
-    { "inventory": [ { "station_code": "...", "station_name": "...", "day_types": { "WD": ["hawkes", ...] } } ] }
+    { "inventory": [ { "station_code": "...", "station_name": "...", "count_types": { "checkins": { "WD": ["hawkes", ...] }, ... } } ] }
     """
     stations = _get_pipeline_stations()
     inventory_map = build_model_inventory(RESULTS_BASE)
@@ -148,13 +149,13 @@ async def get_inventory():
             result.append({
                 "station_code": sc,
                 "station_name": st["station_name"],
-                "day_types": inventory_map[sc]
+                "count_types": inventory_map[sc]
             })
     return {"inventory": result}
 
 
 @router.get("/model_status")
-async def get_model_status(date_str: str, stations: str):
+async def get_model_status(date_str: str, stations: str, count_type: str = "checkins"):
     """
     Query which models have fitted params for the given date + stations.
     `stations` is a comma-separated list of station codes.
@@ -163,7 +164,7 @@ async def get_model_status(date_str: str, stations: str):
     station_list = [s.strip().zfill(5) for s in stations.split(",") if s.strip()]
     day_type = query_day_type(date_str) or "WD"
     try:
-        status = check_model_availability(RESULTS_BASE, station_list, day_type)
+        status = check_model_availability(RESULTS_BASE, station_list, day_type, count_type)
         status["day_type"] = day_type
         return status
     except Exception as e:
@@ -184,6 +185,7 @@ async def create_realtime_session(req: CreateSessionRequest):
                 day_type          = req.day_type,
                 station_codes     = req.station_codes,
                 model             = req.model,          # type: ignore[arg-type]
+                count_type        = req.count_type,
                 adaptation_method = req.adaptation_method,  # type: ignore[arg-type]
                 clock_start_hhmm  = req.clock_start_hhmm,
                 speed             = req.speed,

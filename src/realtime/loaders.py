@@ -101,9 +101,10 @@ def _extract_station_code(estacion_str: str) -> str:
 def load_real_events(
     date_str: str,
     station_codes: list[str],
+    count_type: str = "checkins",
 ) -> dict[str, np.ndarray]:
     """
-    Load real check-in events for *date_str* (YYYYMMDD) and the given stations.
+    Load real check-in or check-out events for *date_str* (YYYYMMDD) and the given stations.
 
     Returns
     -------
@@ -111,9 +112,56 @@ def load_real_events(
     filtered to [TIME_MIN … TIME_MAX) window.
     Empty array if no data for that station.
     """
-    csv_path = Path(f"data/check_ins/daily/{date_str}.csv")
-
     result: dict[str, np.ndarray] = {sc: np.array([]) for sc in station_codes}
+
+    if count_type == "checkouts":
+        # Load from DB for checkouts since they are 15-min aggregated
+        from src.db.session_v2 import SessionLocal
+        from src.repo.v2.counts_15min.repository import Counts15MinRepository
+        
+        db = SessionLocal()
+        try:
+            repo = Counts15MinRepository(db)
+            records = repo.get_counts_by_dates_and_stations(
+                dates=[date_str],
+                station_codes=set(station_codes),
+                include_checkins=False,
+                include_checkouts=True,
+            )
+            
+            # Map by station and time bin
+            # records have time (e.g. 400 for 04:00) and count_out
+            for sc in station_codes:
+                sc_records = [r for r in records if r.station.code == sc]
+                events = []
+                # Uniformly distribute counts within the 15-min bin
+                for r in sc_records:
+                    if r.count_out and r.count_out > 0:
+                        # Convert time (HHMM) to seconds from midnight
+                        h = r.time // 100
+                        m = r.time % 100
+                        bin_start_sec = h * 3600 + m * 60
+                        bin_end_sec = bin_start_sec + _DT_SEC
+                        
+                        # Only keep bins within our observation window
+                        if bin_start_sec >= _START_SEC and bin_end_sec <= _END_SEC:
+                            t_start = bin_start_sec - _START_SEC
+                            t_end = bin_end_sec - _START_SEC
+                            
+                            # Randomly scatter within the bin
+                            scattered = np.random.uniform(t_start, t_end, size=r.count_out)
+                            events.append(scattered)
+                
+                if events:
+                    result[sc] = np.sort(np.concatenate(events))
+                    
+        finally:
+            db.close()
+            
+        return result
+
+    # Standard checkins from daily CSVs
+    csv_path = Path(f"data/check_ins/daily/{date_str}.csv")
 
     if not csv_path.exists():
         return result
@@ -159,57 +207,39 @@ def load_real_events(
 # Availability helpers (for UI to show which models are ready)
 # ---------------------------------------------------------------------------
 
-def build_model_inventory(results_base: Path) -> dict[str, dict[str, list[str]]]:
+def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, list[str]]]]:
     """
     Scans the results directory and returns a full inventory of fitted models:
-    { station_code: { day_type: [model_key, ...] } }
+    { station_code: { count_type: { day_type: [model_key, ...] } } }
     """
-    inventory: dict[str, dict[str, list[str]]] = {}
+    inventory: dict[str, dict[str, dict[str, list[str]]]] = {}
 
-    def _add(sc: str, dt: str, model: str) -> None:
+    def _add(sc: str, count_type: str, dt: str, model: str) -> None:
         if sc not in inventory:
-            inventory[sc] = {}
-        if dt not in inventory[sc]:
-            inventory[sc][dt] = []
-        if model not in inventory[sc][dt]:
-            inventory[sc][dt].append(model)
+            inventory[sc] = {"checkins": {}, "checkouts": {}}
+        if count_type not in inventory[sc]:
+            inventory[sc][count_type] = {}
+        if dt not in inventory[sc][count_type]:
+            inventory[sc][count_type][dt] = []
+        if model not in inventory[sc][count_type][dt]:
+            inventory[sc][count_type][dt].append(model)
 
-    # Hawkes
-    for path in sorted(results_base.glob("hawkes_fit/**/hawkes_params_checkins.csv"), reverse=True):
-        try:
-            df = pd.read_csv(path, dtype={"station_code": str})
-            for _, row in df.iterrows():
-                _add(str(row["station_code"]).zfill(5), str(row["day_type"]), "hawkes")
-        except Exception:
-            pass
+    def process_glob(glob_pattern: str, model_name: str):
+        for path in sorted(results_base.glob(glob_pattern), reverse=True):
+            count_type = "checkouts" if "checkouts" in path.name else "checkins"
+            try:
+                df = pd.read_csv(path, dtype={"station_code": str})
+                if "is_selected" in df.columns:
+                    df = df[df["is_selected"] == True]
+                for _, row in df.iterrows():
+                    _add(str(row["station_code"]).zfill(5), count_type, str(row["day_type"]), model_name)
+            except Exception:
+                pass
 
-    # LGCP Prior
-    for path in sorted(results_base.glob("lgcp_twostage/**/lgcp_kernel_params_checkins.csv"), reverse=True):
-        try:
-            df = pd.read_csv(path, dtype={"station_code": str})
-            df = df[df["is_selected"] == True]
-            for _, row in df.iterrows():
-                _add(str(row["station_code"]).zfill(5), str(row["day_type"]), "lgcp_prior")
-        except Exception:
-            pass
-
-    # LGCP Posterior
-    for path in sorted(results_base.glob("lgcp_bayesian/**/lgcp_posterior_params_checkins.csv"), reverse=True):
-        try:
-            df = pd.read_csv(path, dtype={"station_code": str})
-            for _, row in df.iterrows():
-                _add(str(row["station_code"]).zfill(5), str(row["day_type"]), "lgcp_posterior")
-        except Exception:
-            pass
-
-    # Avg Profile
-    for path in sorted(results_base.glob("avg_profile/**/avg_profile_params_checkins.csv"), reverse=True):
-        try:
-            df = pd.read_csv(path, dtype={"station_code": str})
-            for _, row in df.iterrows():
-                _add(str(row["station_code"]).zfill(5), str(row["day_type"]), "avg_profile")
-        except Exception:
-            pass
+    process_glob("hawkes_fit/**/hawkes_params_*.csv", "hawkes")
+    process_glob("lgcp_twostage/**/lgcp_kernel_params_*.csv", "lgcp_prior")
+    process_glob("lgcp_bayesian/**/lgcp_posterior_params_*.csv", "lgcp_posterior")
+    process_glob("avg_profile/**/avg_profile_params_*.csv", "avg_profile")
 
     return inventory
 
@@ -218,6 +248,7 @@ def check_model_availability(
     results_base: Path,
     station_codes: list[str],
     day_type: str,
+    count_type: str = "checkins",
 ) -> dict[str, bool | str]:
     """
     Check which models have fitted parameters for the given station(s)/day_type.
@@ -225,57 +256,13 @@ def check_model_availability(
     Models: hawkes, lgcp_prior, lgcp_posterior, avg_profile
     """
 
-    def _has_hawkes() -> bool:
-        for path in sorted(results_base.glob("hawkes_fit/**/hawkes_params_checkins.csv"), reverse=True):
+    def _has_model(glob_pattern: str, needs_selection: bool = False) -> bool:
+        for path in sorted(results_base.glob(glob_pattern), reverse=True):
             try:
                 df = pd.read_csv(path)
                 df["station_code"] = df["station_code"].astype(str).str.zfill(5)
-                has = all(
-                    not df[(df["station_code"] == sc) & (df["day_type"] == day_type)].empty
-                    for sc in station_codes
-                )
-                if has:
-                    return True
-            except Exception:
-                continue
-        return False
-
-    def _has_lgcp_prior() -> bool:
-        for path in sorted(results_base.glob("lgcp_twostage/**/lgcp_kernel_params_checkins.csv"), reverse=True):
-            try:
-                df = pd.read_csv(path)
-                df["station_code"] = df["station_code"].astype(str).str.zfill(5)
-                df = df[df["is_selected"] == True]
-                has = all(
-                    not df[(df["station_code"] == sc) & (df["day_type"] == day_type)].empty
-                    for sc in station_codes
-                )
-                if has:
-                    return True
-            except Exception:
-                continue
-        return False
-
-    def _has_lgcp_posterior() -> bool:
-        for path in sorted(results_base.glob("lgcp_bayesian/**/lgcp_posterior_params_checkins.csv"), reverse=True):
-            try:
-                df = pd.read_csv(path)
-                df["station_code"] = df["station_code"].astype(str).str.zfill(5)
-                has = all(
-                    not df[(df["station_code"] == sc) & (df["day_type"] == day_type)].empty
-                    for sc in station_codes
-                )
-                if has:
-                    return True
-            except Exception:
-                continue
-        return False
-
-    def _has_avg_profile() -> bool:
-        for path in sorted(results_base.glob("avg_profile/**/avg_profile_params_checkins.csv"), reverse=True):
-            try:
-                df = pd.read_csv(path)
-                df["station_code"] = df["station_code"].astype(str).str.zfill(5)
+                if needs_selection and "is_selected" in df.columns:
+                    df = df[df["is_selected"] == True]
                 has = all(
                     not df[(df["station_code"] == sc) & (df["day_type"] == day_type)].empty
                     for sc in station_codes
@@ -287,10 +274,10 @@ def check_model_availability(
         return False
 
     return {
-        "hawkes":         _has_hawkes(),
-        "lgcp_prior":     _has_lgcp_prior(),
-        "lgcp_posterior": _has_lgcp_posterior(),
-        "avg_profile":    _has_avg_profile(),
+        "hawkes":         _has_model(f"hawkes_fit/**/hawkes_params_{count_type}.csv"),
+        "lgcp_prior":     _has_model(f"lgcp_twostage/**/lgcp_kernel_params_{count_type}.csv", needs_selection=True),
+        "lgcp_posterior": _has_model(f"lgcp_bayesian/**/lgcp_posterior_params_{count_type}.csv"),
+        "avg_profile":    _has_model(f"avg_profile/**/avg_profile_params_{count_type}.csv"),
     }
 
 
@@ -302,6 +289,7 @@ def load_hawkes_params(
     results_base: Path,
     station_codes: list[str],
     day_type: str,
+    count_type: str = "checkins",
 ) -> dict[str, dict]:
     """
     Load median Hawkes params (kappa, alpha, beta) per station for the given day_type.
@@ -309,10 +297,10 @@ def load_hawkes_params(
     Returns {station_code: {kappa, alpha, beta, profile}} or raises if not found.
     """
     csv_candidates = sorted(
-        results_base.glob("hawkes_fit/**/hawkes_params_checkins.csv"), reverse=True
+        results_base.glob(f"hawkes_fit/**/hawkes_params_{count_type}.csv"), reverse=True
     )
     if not csv_candidates:
-        raise FileNotFoundError("No hawkes_params_checkins.csv found under results/hawkes_fit/")
+        raise FileNotFoundError(f"No hawkes_params_{count_type}.csv found under results/hawkes_fit/")
 
     fit_df: pd.DataFrame | None = None
     for path in csv_candidates:
@@ -349,16 +337,17 @@ def load_lgcp_prior_params(
     results_base: Path,
     station_codes: list[str],
     day_type: str,
+    count_type: str = "checkins",
 ) -> dict[str, dict]:
     """
     Load LGCP prior params (mu, L_chol) per station for the given day_type.
     Returns {station_code: {kernel, sigma2, ell, mu, time_hours}}.
     """
     csv_candidates = sorted(
-        results_base.glob("lgcp_twostage/**/lgcp_kernel_params_checkins.csv"), reverse=True
+        results_base.glob(f"lgcp_twostage/**/lgcp_kernel_params_{count_type}.csv"), reverse=True
     )
     if not csv_candidates:
-        raise FileNotFoundError("No lgcp_kernel_params_checkins.csv found.")
+        raise FileNotFoundError(f"No lgcp_kernel_params_{count_type}.csv found.")
 
     kernel_df: pd.DataFrame | None = None
     for path in csv_candidates:
@@ -380,13 +369,13 @@ def load_lgcp_prior_params(
     from src.workflow.data_loader import load_data
     data = load_data(
         station_codes=station_codes,
-        include_checkins=True,
-        include_checkouts=False,
+        include_checkins=(count_type == "checkins"),
+        include_checkouts=(count_type == "checkouts"),
         time_min=TIME_MIN,
         time_max=TIME_MAX,
         time_step=TIME_STEP,
     )
-    df_all = data["checkins"]
+    df_all = data[count_type]
     df_all["station_code"] = df_all["station_code"].astype(str).str.zfill(5)
 
     time_cols = sorted([c for c in df_all.columns if c.startswith("t_")],
@@ -425,18 +414,19 @@ def load_lgcp_posterior_params(
     results_base: Path,
     station_codes: list[str],
     day_type: str,
+    count_type: str = "checkins",
 ) -> dict[str, dict]:
     """
     Load LGCP posterior params (z_map, H, kernel) per station for the given day_type.
     Requires that load_lgcp_prior_params also succeeds (shares kernel file).
     """
-    prior_params = load_lgcp_prior_params(results_base, station_codes, day_type)
+    prior_params = load_lgcp_prior_params(results_base, station_codes, day_type, count_type)
 
     csv_candidates = sorted(
-        results_base.glob("lgcp_bayesian/**/lgcp_posterior_params_checkins.csv"), reverse=True
+        results_base.glob(f"lgcp_bayesian/**/lgcp_posterior_params_{count_type}.csv"), reverse=True
     )
     if not csv_candidates:
-        raise FileNotFoundError("No lgcp_posterior_params_checkins.csv found.")
+        raise FileNotFoundError(f"No lgcp_posterior_params_{count_type}.csv found.")
 
     posterior_df: pd.DataFrame | None = None
     for path in csv_candidates:
@@ -472,15 +462,16 @@ def load_avg_profile_params(
     results_base: Path,
     station_codes: list[str],
     day_type: str,
+    count_type: str = "checkins",
 ) -> dict[str, dict]:
     """
     Load average profile params (mean/std per bin) for the given stations/day_type.
     """
     csv_candidates = sorted(
-        results_base.glob("avg_profile/**/avg_profile_params_checkins.csv"), reverse=True
+        results_base.glob(f"avg_profile/**/avg_profile_params_{count_type}.csv"), reverse=True
     )
     if not csv_candidates:
-        raise FileNotFoundError("No avg_profile_params_checkins.csv found.")
+        raise FileNotFoundError(f"No avg_profile_params_{count_type}.csv found.")
 
     profile_df: pd.DataFrame | None = None
     for path in csv_candidates:
