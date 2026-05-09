@@ -66,6 +66,7 @@ class CreateSessionRequest(BaseModel):
     speed:             float = 1.0
     lookahead_min:     float = 60.0
     seed:              int   = 42
+    run_id:            str   = ""              # specific experiment folder
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +192,7 @@ async def create_realtime_session(req: CreateSessionRequest):
                 speed             = req.speed,
                 lookahead_min     = req.lookahead_min,
                 seed              = req.seed,
+                run_id            = req.run_id,
             ),
         )
         store.put(session)

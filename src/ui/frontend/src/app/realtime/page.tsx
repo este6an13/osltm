@@ -62,14 +62,28 @@ export default function RealtimePage() {
   const [selectedStation, setSelectedStation] = useState<string>('');
   const [availDates, setAvailDates] = useState<Record<string, string>>({});
   const [cutoffDate, setCutoffDate] = useState<string | null>(null);
-  const [inventory, setInventory] = useState<{ station_code: string; station_name: string; count_types: Record<string, Record<string, string[]>> }[]>([]);
+  const [inventory, setInventory] = useState<{ station_code: string; station_name: string; count_types: Record<string, Record<string, Record<string, {run_id: string; label: string}[]>>> }[]>([]);
   const [cfg, setCfg] = useState<SessionConfig>({
-    date_str: '', day_type: 'WD', station_codes: [], model: '',
+    date_str: '', day_type: 'WD', station_codes: [], model: '', run_id: '',
     adaptation_method: 'bayesian', clock_start_hhmm: 400,
     speed: 1, lookahead_min: 60, seed: 42, count_type: 'checkins',
   });
   const feedRef = useRef<HTMLDivElement>(null);
   const [feed, setFeed] = useState<{ time: string; sc: string; src: string; t: number }[]>([]);
+
+  const getCategory = (m: string) => {
+    if (m.startsWith('lgcp')) return 'lgcp';
+    if (m.startsWith('cluster')) return 'cluster';
+    return m;
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    hawkes: 'Hawkes Process', lgcp: 'LGCP', cluster: 'Cluster Process', avg_profile: 'Average Profile'
+  };
+  const SUBMODEL_LABELS: Record<string, string> = {
+    lgcp_prior: 'Prior', lgcp_posterior: 'Posterior', cluster: 'Legacy',
+    cluster_dbscan: 'DBSCAN', cluster_dbscan_hybrid: 'Hybrid', cluster_kmeans: 'K-Means', cluster_fixed_size: 'Fixed Size'
+  };
 
   // Load dates + inventory on mount
   useEffect(() => {
@@ -84,8 +98,11 @@ export default function RealtimePage() {
         const sc = inv[0].station_code;
         const ct = 'checkins';
         const dt = inv[0].count_types?.[ct] ? Object.keys(inv[0].count_types[ct])[0] || 'WD' : 'WD';
-        const mod = inv[0].count_types?.[ct]?.[dt] ? inv[0].count_types[ct][dt][0] : '';
-        setCfg(c => ({ ...c, station_codes: [sc], count_type: ct as any, day_type: dt, model: mod as any }));
+        const modKeys = inv[0].count_types?.[ct]?.[dt] ? Object.keys(inv[0].count_types[ct][dt]) : [];
+        const mod = modKeys[0] || '';
+        const runs = mod ? inv[0].count_types[ct][dt][mod] : [];
+        const runId = runs.length > 0 ? runs[0].run_id : '';
+        setCfg(c => ({ ...c, station_codes: [sc], count_type: ct as any, day_type: dt, model: mod as any, run_id: runId }));
       }
     }).catch(() => { });
   }, []);
@@ -124,7 +141,11 @@ export default function RealtimePage() {
   const selectedInv = inventory.find(i => i.station_code === cfg.station_codes[0]);
   const currentCtData = selectedInv?.count_types?.[cfg.count_type] || {};
   const availableDayTypes = Object.keys(currentCtData);
-  const availableModels = cfg.day_type ? (currentCtData[cfg.day_type] || []) : [];
+  const availableModelsKeys = cfg.day_type ? Object.keys(currentCtData[cfg.day_type] || {}) : [];
+  const categories = Array.from(new Set(availableModelsKeys.map(getCategory)));
+  const currentCategory = getCategory(cfg.model);
+  const availableSubModels = availableModelsKeys.filter(m => getCategory(m) === currentCategory);
+  const currentRuns = cfg.model ? (currentCtData[cfg.day_type]?.[cfg.model] || []) : [];
   const validDates = Object.keys(availDates).filter(d => availDates[d] === cfg.day_type).sort().reverse();
 
   const sc = selectedStation || state.meta?.station_codes?.[0] || '';
@@ -155,8 +176,10 @@ export default function RealtimePage() {
                 const sc = cfg.station_codes[0] || '';
                 const inv = inventory.find(i => i.station_code === sc);
                 const dt = inv?.count_types?.[ct] ? Object.keys(inv.count_types[ct])[0] || 'WD' : 'WD';
-                const mod = inv?.count_types?.[ct]?.[dt] ? inv.count_types[ct][dt][0] : '';
-                setCfg(c => ({ ...c, count_type: ct, day_type: dt, model: mod as any, date_str: '' }));
+                const modKeys = inv?.count_types?.[ct]?.[dt] ? Object.keys(inv.count_types[ct][dt]) : [];
+                const mod = modKeys[0] || '';
+                const runs = mod ? inv.count_types[ct][dt][mod] : [];
+                setCfg(c => ({ ...c, count_type: ct, day_type: dt, model: mod as any, run_id: runs[0]?.run_id || '', date_str: '' }));
               }}>
               <option value="checkins">Check-ins</option>
               <option value="checkouts">Check-outs</option>
@@ -172,8 +195,10 @@ export default function RealtimePage() {
                 const inv = inventory.find(i => i.station_code === sc);
                 const ct = cfg.count_type;
                 const dt = inv?.count_types?.[ct] ? Object.keys(inv.count_types[ct])[0] || 'WD' : 'WD';
-                const mod = inv?.count_types?.[ct]?.[dt] ? inv.count_types[ct][dt][0] : '';
-                setCfg(c => ({ ...c, station_codes: [sc], day_type: dt, model: mod as any, date_str: '' }));
+                const modKeys = inv?.count_types?.[ct]?.[dt] ? Object.keys(inv.count_types[ct][dt]) : [];
+                const mod = modKeys[0] || '';
+                const runs = mod ? inv.count_types[ct][dt][mod] : [];
+                setCfg(c => ({ ...c, station_codes: [sc], day_type: dt, model: mod as any, run_id: runs[0]?.run_id || '', date_str: '' }));
               }}>
               <option value="" disabled>Select a station...</option>
               {inventory.map(s => (
@@ -191,8 +216,10 @@ export default function RealtimePage() {
               onChange={e => {
                 const dt = e.target.value;
                 const inv = inventory.find(i => i.station_code === cfg.station_codes[0]);
-                const mod = inv?.count_types?.[cfg.count_type]?.[dt] ? inv.count_types[cfg.count_type][dt][0] : '';
-                setCfg(c => ({ ...c, day_type: dt, model: mod as any, date_str: '' }));
+                const modKeys = inv?.count_types?.[cfg.count_type]?.[dt] ? Object.keys(inv.count_types[cfg.count_type][dt]) : [];
+                const mod = modKeys[0] || '';
+                const runs = mod ? inv.count_types[cfg.count_type][dt][mod] : [];
+                setCfg(c => ({ ...c, day_type: dt, model: mod as any, run_id: runs[0]?.run_id || '', date_str: '' }));
               }}>
               {availableDayTypes.map(dt => (
                 <option key={dt} value={dt}>{DAY_LABELS[dt] || dt}</option>
@@ -201,18 +228,53 @@ export default function RealtimePage() {
           </div>
 
           <div className="form-group" style={{ marginBottom: '0.65rem' }}>
-            <label className="form-label">Model</label>
-            <select className="form-select" value={cfg.model}
-              disabled={!availableModels.length}
-              onChange={e => setCfg(c => ({ ...c, model: e.target.value as ModelType }))}>
-              {availableModels.map(m => (
-                <option key={m} value={m}>{MODEL_OPTIONS_MAP[m] || m}</option>
+            <label className="form-label">Model Category</label>
+            <select className="form-select" value={currentCategory}
+              disabled={!categories.length}
+              onChange={e => {
+                const cat = e.target.value;
+                const subModels = availableModelsKeys.filter(m => getCategory(m) === cat);
+                const firstSub = subModels[0] || '';
+                const runs = firstSub ? (currentCtData[cfg.day_type]?.[firstSub] || []) : [];
+                setCfg(c => ({ ...c, model: firstSub as any, run_id: runs[0]?.run_id || '' }));
+              }}>
+              {categories.map(c => (
+                <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
               ))}
             </select>
-            {cfg.model === 'hawkes_kappa' && (
-              <span style={{ fontSize: '0.7rem', color: '#6c757d' }}>Option C available for Hawkes</span>
-            )}
           </div>
+
+          {(currentCategory === 'lgcp' || currentCategory === 'cluster') && availableSubModels.length > 0 && (
+            <div className="form-group" style={{ marginBottom: '0.65rem' }}>
+              <label className="form-label">Sub-Model</label>
+              <select className="form-select" value={cfg.model}
+                onChange={e => {
+                  const sub = e.target.value;
+                  const runs = currentCtData[cfg.day_type]?.[sub] || [];
+                  setCfg(c => ({ ...c, model: sub as any, run_id: runs[0]?.run_id || '' }));
+                }}>
+                {availableSubModels.map(m => (
+                  <option key={m} value={m}>{SUBMODEL_LABELS[m] || m}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {currentRuns.length > 0 && (
+            <div className="form-group" style={{ marginBottom: '0.65rem' }}>
+              <label className="form-label">Experiment Run</label>
+              <select className="form-select" value={cfg.run_id}
+                onChange={e => setCfg(c => ({ ...c, run_id: e.target.value }))}>
+                {currentRuns.map(r => (
+                  <option key={r.run_id} value={r.run_id}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          {cfg.model === 'hawkes_kappa' && (
+            <span style={{ fontSize: '0.7rem', color: '#6c757d', display: 'block', marginBottom: '0.65rem' }}>Option C available for Hawkes</span>
+          )}
 
           <div className="form-group" style={{ marginBottom: '0.65rem' }}>
             <label className="form-label">Date (Real Data)</label>

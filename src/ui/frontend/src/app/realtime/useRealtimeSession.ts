@@ -24,6 +24,7 @@ export interface SessionConfig {
   lookahead_min: number;
   seed: number;
   count_type: 'checkins' | 'checkouts';
+  run_id: string;
 }
 
 export interface ForecastBin {

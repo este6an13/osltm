@@ -207,26 +207,30 @@ def load_real_events(
 # Availability helpers (for UI to show which models are ready)
 # ---------------------------------------------------------------------------
 
-def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, list[str]]]]:
+def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, dict[str, list[dict]]]]]:
     """
     Scans the results directory and returns a full inventory of fitted models:
-    { station_code: { count_type: { day_type: [model_key, ...] } } }
+    { station_code: { count_type: { day_type: { model_key: [{"run_id": "exp_...", "label": "..."}] } } } }
     """
-    inventory: dict[str, dict[str, dict[str, list[str]]]] = {}
+    inventory: dict[str, dict[str, dict[str, dict[str, list[dict]]]]] = {}
 
-    def _add(sc: str, count_type: str, dt: str, model: str) -> None:
+    def _add(sc: str, count_type: str, dt: str, model: str, run_id: str) -> None:
         if sc not in inventory:
             inventory[sc] = {"checkins": {}, "checkouts": {}}
         if count_type not in inventory[sc]:
             inventory[sc][count_type] = {}
         if dt not in inventory[sc][count_type]:
-            inventory[sc][count_type][dt] = []
+            inventory[sc][count_type][dt] = {}
         if model not in inventory[sc][count_type][dt]:
-            inventory[sc][count_type][dt].append(model)
+            inventory[sc][count_type][dt][model] = []
+        
+        if not any(r["run_id"] == run_id for r in inventory[sc][count_type][dt][model]):
+            inventory[sc][count_type][dt][model].append({"run_id": run_id, "label": run_id})
 
     def process_glob(glob_pattern: str, base_model_name: str, has_method: bool = False):
         for path in sorted(results_base.glob(glob_pattern), reverse=True):
             count_type = "checkouts" if "checkouts" in path.name else "checkins"
+            run_id = path.parent.name
             try:
                 df = pd.read_csv(path, dtype={"station_code": str})
                 if "is_selected" in df.columns:
@@ -235,7 +239,7 @@ def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, l
                     final_model_name = base_model_name
                     if has_method and "method" in row and not pd.isna(row["method"]):
                         final_model_name = f"{base_model_name}_{row['method']}"
-                    _add(str(row["station_code"]).zfill(5), count_type, str(row["day_type"]), final_model_name)
+                    _add(str(row["station_code"]).zfill(5), count_type, str(row["day_type"]), final_model_name, run_id)
             except Exception:
                 pass
 
@@ -295,14 +299,16 @@ def load_hawkes_params(
     station_codes: list[str],
     day_type: str,
     count_type: str = "checkins",
+    run_id: str = "",
 ) -> dict[str, dict]:
     """
     Load median Hawkes params (kappa, alpha, beta) per station for the given day_type.
     Searches the most recent experiment under hawkes_fit/.
     Returns {station_code: {kappa, alpha, beta, profile}} or raises if not found.
     """
+    glob_pattern = f"hawkes_fit/**/{run_id}/hawkes_params_{count_type}.csv" if run_id else f"hawkes_fit/**/hawkes_params_{count_type}.csv"
     csv_candidates = sorted(
-        results_base.glob(f"hawkes_fit/**/hawkes_params_{count_type}.csv"), reverse=True
+        results_base.glob(glob_pattern), reverse=True
     )
     if not csv_candidates:
         raise FileNotFoundError(f"No hawkes_params_{count_type}.csv found under results/hawkes_fit/")
@@ -343,13 +349,15 @@ def load_lgcp_prior_params(
     station_codes: list[str],
     day_type: str,
     count_type: str = "checkins",
+    run_id: str = "",
 ) -> dict[str, dict]:
     """
     Load LGCP prior params (mu, L_chol) per station for the given day_type.
     Returns {station_code: {kernel, sigma2, ell, mu, time_hours}}.
     """
+    glob_pattern = f"lgcp_twostage/**/{run_id}/lgcp_kernel_params_{count_type}.csv" if run_id else f"lgcp_twostage/**/lgcp_kernel_params_{count_type}.csv"
     csv_candidates = sorted(
-        results_base.glob(f"lgcp_twostage/**/lgcp_kernel_params_{count_type}.csv"), reverse=True
+        results_base.glob(glob_pattern), reverse=True
     )
     if not csv_candidates:
         raise FileNotFoundError(f"No lgcp_kernel_params_{count_type}.csv found.")
@@ -420,6 +428,7 @@ def load_lgcp_posterior_params(
     station_codes: list[str],
     day_type: str,
     count_type: str = "checkins",
+    run_id: str = "",
 ) -> dict[str, dict]:
     """
     Load LGCP posterior params (z_map, H, kernel) per station for the given day_type.
@@ -427,8 +436,9 @@ def load_lgcp_posterior_params(
     """
     prior_params = load_lgcp_prior_params(results_base, station_codes, day_type, count_type)
 
+    glob_pattern = f"lgcp_bayesian/**/{run_id}/lgcp_posterior_params_{count_type}.csv" if run_id else f"lgcp_bayesian/**/lgcp_posterior_params_{count_type}.csv"
     csv_candidates = sorted(
-        results_base.glob(f"lgcp_bayesian/**/lgcp_posterior_params_{count_type}.csv"), reverse=True
+        results_base.glob(glob_pattern), reverse=True
     )
     if not csv_candidates:
         raise FileNotFoundError(f"No lgcp_posterior_params_{count_type}.csv found.")
@@ -468,12 +478,14 @@ def load_avg_profile_params(
     station_codes: list[str],
     day_type: str,
     count_type: str = "checkins",
+    run_id: str = "",
 ) -> dict[str, dict]:
     """
     Load average profile params (mean/std per bin) for the given stations/day_type.
     """
+    glob_pattern = f"avg_profile/**/{run_id}/avg_profile_params_{count_type}.csv" if run_id else f"avg_profile/**/avg_profile_params_{count_type}.csv"
     csv_candidates = sorted(
-        results_base.glob(f"avg_profile/**/avg_profile_params_{count_type}.csv"), reverse=True
+        results_base.glob(glob_pattern), reverse=True
     )
     if not csv_candidates:
         raise FileNotFoundError(f"No avg_profile_params_{count_type}.csv found.")
@@ -530,13 +542,18 @@ def load_cluster_params(
     day_type: str,
     count_type: str = "checkins",
     method: str = None,
+    run_id: str = "",
 ) -> dict[str, dict]:
     """
     Load cluster process params (centroid_mu_blocks, noise_mu_blocks, cluster_size_mean, dispersion_std).
     """
     import json
     
-    if (results_base / f"cluster_params_{count_type}.csv").exists():
+    if run_id:
+        csv_candidates = sorted(
+            results_base.glob(f"cluster_fit/**/{run_id}/cluster_params_{count_type}.csv"), reverse=True
+        )
+    elif (results_base / f"cluster_params_{count_type}.csv").exists():
         csv_candidates = [results_base / f"cluster_params_{count_type}.csv"]
     else:
         csv_candidates = sorted(

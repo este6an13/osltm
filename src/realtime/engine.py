@@ -188,6 +188,7 @@ class RealtimeSession:
     count_type:    str          # checkins / checkouts
     clock_start_sec: float      # seconds from window start (0 = TIME_MIN)
     speed:         float        # 1.0 = real time
+    run_id:        str = ""
 
     adaptation_method: AdaptationMethod = "bayesian"
 
@@ -327,6 +328,7 @@ def create_session(
     speed:             float = 1.0,
     lookahead_min:     float = 60.0,
     seed:              int = 42,
+    run_id:            str = "",
 ) -> RealtimeSession:
     """
     Create and fully initialize a RealtimeSession:
@@ -348,6 +350,7 @@ def create_session(
         count_type        = count_type,
         clock_start_sec   = clock_start_sec,
         speed             = speed,
+        run_id            = run_id,
         adaptation_method = adaptation_method,
         lookahead_sec     = lookahead_min * 60.0,
     )
@@ -372,9 +375,10 @@ def _generate_model_events(session: RealtimeSession, rng: np.random.Generator) -
     scs   = session.station_codes
     dt    = session.day_type
     ct    = session.count_type
+    run_id = session.run_id
 
     if model == "hawkes":
-        params_map = load_hawkes_params(RESULTS_BASE, scs, dt, ct)
+        params_map = load_hawkes_params(RESULTS_BASE, scs, dt, ct, run_id=run_id)
         # Build mu_blocks for each station from a uniform profile (conservative)
         for sc, p in params_map.items():
             p["mu_blocks"] = np.full(_N_BINS, 1.0 / (_N_BINS * _DT_SEC))
@@ -384,21 +388,21 @@ def _generate_model_events(session: RealtimeSession, rng: np.random.Generator) -
             session._hawkes_params[sc] = p
 
     elif model == "lgcp_prior":
-        params_map = load_lgcp_prior_params(RESULTS_BASE, scs, dt, ct)
+        params_map = load_lgcp_prior_params(RESULTS_BASE, scs, dt, ct, run_id=run_id)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_lgcp_prior(p, rng)
             session._prior_means[sc] = np.exp(p["mu"])
             session._prior_vars[sc]  = np.exp(p["mu"])   # Poisson approx
 
     elif model == "lgcp_posterior":
-        params_map = load_lgcp_posterior_params(RESULTS_BASE, scs, dt, ct)
+        params_map = load_lgcp_posterior_params(RESULTS_BASE, scs, dt, ct, run_id=run_id)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_lgcp_posterior(p, rng)
             session._prior_means[sc] = np.exp(p["z_map"])
             session._prior_vars[sc]  = np.exp(p["z_map"])
 
     elif model == "avg_profile":
-        params_map = load_avg_profile_params(RESULTS_BASE, scs, dt, ct)
+        params_map = load_avg_profile_params(RESULTS_BASE, scs, dt, ct, run_id=run_id)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_avg_profile_day(p, rng)
             session._prior_means[sc] = p["means"]
@@ -408,7 +412,7 @@ def _generate_model_events(session: RealtimeSession, rng: np.random.Generator) -
         method_parts = model.split("_", 1)
         cluster_method = method_parts[1] if len(method_parts) > 1 else None
         
-        params_map = load_cluster_params(RESULTS_BASE, scs, dt, ct, method=cluster_method)
+        params_map = load_cluster_params(RESULTS_BASE, scs, dt, ct, method=cluster_method, run_id=run_id)
         for sc, p in params_map.items():
             session.model_events[sc] = _simulate_cluster_day(p, rng)
             # Expected events per bin = background + parents * children_per_parent
