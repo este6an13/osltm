@@ -10,7 +10,7 @@ const WINDOW_START_SEC = (4 * 3600);   // 04:00
 const WINDOW_END_SEC = (23 * 3600);  // 23:00
 const WINDOW_TOTAL = WINDOW_END_SEC - WINDOW_START_SEC;
 
-export type ModelType = 'hawkes' | 'lgcp_prior' | 'lgcp_posterior' | 'avg_profile';
+export type ModelType = 'hawkes' | 'lgcp_prior' | 'lgcp_posterior' | 'avg_profile' | 'cluster' | 'cluster_dbscan' | 'cluster_dbscan_hybrid' | 'cluster_kmeans' | 'cluster_fixed_size';
 export type AdaptationMethod = 'bayesian' | 'multiplicative' | 'hawkes_kappa' | 'trend';
 
 export interface SessionConfig {

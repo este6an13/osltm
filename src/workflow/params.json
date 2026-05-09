@@ -45,5 +45,11 @@
     "hawkes": {
         "cutoff_date": "2025-11-30",
         "output_dir": "src/workflow/results/hawkes_backtest"
+    },
+    "cluster": {
+        "cutoff_date": "2025-11-30",
+        "dbscan_eps": 60,
+        "dbscan_min_samples": 3,
+        "output_dir": "src/workflow/results/cluster_fit"
     }
 }

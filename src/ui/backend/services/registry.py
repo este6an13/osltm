@@ -343,4 +343,36 @@ SCRIPTS = {
             ScriptParam(name="n_days", type="int", default=30),
         ]
     ),
+    
+    # Models - Cluster
+    "models/cluster/step1_fit": ScriptDef(
+        module="src.workflow.scripts.models.cluster.step1_fit",
+        name="Cluster Process - Step 1: Fit",
+        description="Extract cluster parameters (centroids, dispersion, sizes) via DBSCAN.",
+        category="models/cluster",
+        output_dir="cluster_fit",
+        params=[
+            ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="date_percentage", type="date_percentage", default=0.1),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff for training data"),
+            ScriptParam(name="method", type="choice", choices=["dbscan", "dbscan_hybrid", "kmeans", "fixed_size"], default="dbscan", description="Clustering method"),
+            ScriptParam(name="target_size", type="int", default=5, description="Target cluster size (used by kmeans, fixed_size, and dbscan_hybrid)"),
+        ]
+    ),
+    "models/cluster/step2_simulate": ScriptDef(
+        module="src.workflow.scripts.models.cluster.step2_simulate",
+        name="Cluster Process - Step 2: Simulate & Diagnostics",
+        description="Simulate synthetic days and automatically generate diagnostic envelope plots against test data.",
+        category="models/cluster",
+        output_dir="cluster_diagnostics",
+        depends_on="cluster_fit",
+        input_arg="--fit_dir",
+        params=[
+            ScriptParam(name="stations", type="station_list"),
+            ScriptParam(name="day_types", type="multi_choice", choices=["WD", "SA", "SU", "HO"], default=["WD", "SA", "SU", "HO"]),
+            ScriptParam(name="count_type", type="choice", choices=["checkins", "checkouts"], default="checkins"),
+            ScriptParam(name="n_days", type="int", default=30),
+        ]
+    ),
 }

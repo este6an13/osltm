@@ -29,6 +29,7 @@ from src.realtime.loaders import (
     load_lgcp_prior_params,
     load_lgcp_posterior_params,
     load_avg_profile_params,
+    load_cluster_params,
     query_day_type,
 )
 from src.realtime.adaptation import (
@@ -39,7 +40,7 @@ from src.realtime.adaptation import (
     HawkesKappaAdaptation,
 )
 
-ModelType = Literal["hawkes", "lgcp_prior", "lgcp_posterior", "avg_profile"]
+ModelType = Literal["hawkes", "lgcp_prior", "lgcp_posterior", "avg_profile", "cluster"]
 
 RESULTS_BASE = Path("src/workflow/results")
 
@@ -156,6 +157,12 @@ def _simulate_avg_profile_day(params: dict, rng: np.random.Generator) -> np.ndar
             t_end   = min((k + 1) * _DT_SEC, _T_TOTAL)
             events.append(rng.uniform(t_start, t_end, size=n))
     return np.sort(np.concatenate(events)) if events else np.array([])
+
+
+def _simulate_cluster_day(params: dict, rng: np.random.Generator) -> np.ndarray:
+    from src.workflow.scripts.models.cluster.core import simulate_cluster_process
+    p = {**params, "dt_sec": _DT_SEC, "T_total": _T_TOTAL}
+    return simulate_cluster_process(p, rng)
 
 
 def _build_hawkes_mu_blocks(params: dict) -> np.ndarray:
@@ -396,6 +403,19 @@ def _generate_model_events(session: RealtimeSession, rng: np.random.Generator) -
             session.model_events[sc] = _simulate_avg_profile_day(p, rng)
             session._prior_means[sc] = p["means"]
             session._prior_vars[sc]  = p["stds"] ** 2
+
+    elif model.startswith("cluster"):
+        method_parts = model.split("_", 1)
+        cluster_method = method_parts[1] if len(method_parts) > 1 else None
+        
+        params_map = load_cluster_params(RESULTS_BASE, scs, dt, ct, method=cluster_method)
+        for sc, p in params_map.items():
+            session.model_events[sc] = _simulate_cluster_day(p, rng)
+            # Expected events per bin = background + parents * children_per_parent
+            expected_noise = p["noise_mu_blocks"] * _DT_SEC
+            expected_children = p["centroid_mu_blocks"] * _DT_SEC * p["cluster_size_mean"]
+            session._prior_means[sc] = expected_noise + expected_children
+            session._prior_vars[sc] = session._prior_means[sc]
 
     else:
         raise ValueError(f"Unknown model: {model}")

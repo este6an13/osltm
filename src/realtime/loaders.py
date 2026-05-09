@@ -224,7 +224,7 @@ def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, l
         if model not in inventory[sc][count_type][dt]:
             inventory[sc][count_type][dt].append(model)
 
-    def process_glob(glob_pattern: str, model_name: str):
+    def process_glob(glob_pattern: str, base_model_name: str, has_method: bool = False):
         for path in sorted(results_base.glob(glob_pattern), reverse=True):
             count_type = "checkouts" if "checkouts" in path.name else "checkins"
             try:
@@ -232,7 +232,10 @@ def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, l
                 if "is_selected" in df.columns:
                     df = df[df["is_selected"] == True]
                 for _, row in df.iterrows():
-                    _add(str(row["station_code"]).zfill(5), count_type, str(row["day_type"]), model_name)
+                    final_model_name = base_model_name
+                    if has_method and "method" in row and not pd.isna(row["method"]):
+                        final_model_name = f"{base_model_name}_{row['method']}"
+                    _add(str(row["station_code"]).zfill(5), count_type, str(row["day_type"]), final_model_name)
             except Exception:
                 pass
 
@@ -240,6 +243,7 @@ def build_model_inventory(results_base: Path) -> dict[str, dict[str, dict[str, l
     process_glob("lgcp_twostage/**/lgcp_kernel_params_*.csv", "lgcp_prior")
     process_glob("lgcp_bayesian/**/lgcp_posterior_params_*.csv", "lgcp_posterior")
     process_glob("avg_profile/**/avg_profile_params_*.csv", "avg_profile")
+    process_glob("cluster_fit/**/cluster_params_*.csv", "cluster", has_method=True)
 
     return inventory
 
@@ -278,6 +282,7 @@ def check_model_availability(
         "lgcp_prior":     _has_model(f"lgcp_twostage/**/lgcp_kernel_params_{count_type}.csv", needs_selection=True),
         "lgcp_posterior": _has_model(f"lgcp_bayesian/**/lgcp_posterior_params_{count_type}.csv"),
         "avg_profile":    _has_model(f"avg_profile/**/avg_profile_params_{count_type}.csv"),
+        "cluster":        _has_model(f"cluster_fit/**/cluster_params_{count_type}.csv"),
     }
 
 
@@ -517,3 +522,64 @@ def load_avg_profile_params(
             "time_cols":  time_cols,
         }
     return out
+
+
+def load_cluster_params(
+    results_base: Path,
+    station_codes: list[str],
+    day_type: str,
+    count_type: str = "checkins",
+    method: str = None,
+) -> dict[str, dict]:
+    """
+    Load cluster process params (centroid_mu_blocks, noise_mu_blocks, cluster_size_mean, dispersion_std).
+    """
+    import json
+    
+    if (results_base / f"cluster_params_{count_type}.csv").exists():
+        csv_candidates = [results_base / f"cluster_params_{count_type}.csv"]
+    else:
+        csv_candidates = sorted(
+            results_base.glob(f"cluster_fit/**/cluster_params_{count_type}.csv"), reverse=True
+        )
+        
+    if not csv_candidates:
+        raise FileNotFoundError(f"No cluster_params_{count_type}.csv found.")
+
+    fit_df: pd.DataFrame | None = None
+    for path in csv_candidates:
+        try:
+            df = pd.read_csv(path)
+            df["station_code"] = df["station_code"].astype(str).str.zfill(5)
+            df = df[df["day_type"] == day_type]
+            df = df[df["station_code"].isin(station_codes)]
+            if method is not None and "method" in df.columns:
+                df = df[df["method"] == method]
+            if not df.empty:
+                fit_df = df
+                break
+        except Exception:
+            continue
+
+    if fit_df is None or fit_df.empty:
+        raise ValueError(f"No Cluster params for stations={station_codes}, day_type={day_type}")
+
+    out: dict[str, dict] = {}
+    for sc in station_codes:
+        row = fit_df[fit_df["station_code"] == sc]
+        if row.empty:
+            raise ValueError(f"No Cluster params for station {sc}, day_type={day_type}")
+        row = row.iloc[0]
+        
+        # Load stringified arrays
+        centroid_mu_blocks = np.array(json.loads(row["centroid_mu_blocks"]))
+        noise_mu_blocks = np.array(json.loads(row["noise_mu_blocks"]))
+        
+        out[sc] = {
+            "centroid_mu_blocks": centroid_mu_blocks,
+            "noise_mu_blocks": noise_mu_blocks,
+            "cluster_size_mean": float(row["cluster_size_mean"]),
+            "dispersion_std": float(row["dispersion_std"]),
+        }
+    return out
+

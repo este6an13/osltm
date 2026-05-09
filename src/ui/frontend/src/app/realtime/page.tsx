@@ -13,6 +13,11 @@ const MODEL_OPTIONS_MAP: Record<string, string> = {
   lgcp_prior: 'LGCP Prior',
   lgcp_posterior: 'LGCP Posterior',
   avg_profile: 'Average Profile',
+  cluster: 'Cluster Process (Legacy)',
+  cluster_dbscan: 'Cluster Process (DBSCAN)',
+  cluster_dbscan_hybrid: 'Cluster Process (Hybrid)',
+  cluster_kmeans: 'Cluster Process (K-Means)',
+  cluster_fixed_size: 'Cluster Process (Fixed Size)',
 };
 const ADAPT_OPTIONS = [
   { value: 'bayesian', label: 'Bayesian Gamma (B)' },
