@@ -29,6 +29,14 @@
         "time_step": 15,
         "delta_minutes": 1
     },
+    "step5": {
+        "force_redownload": false,
+        "force_regenerate": false,
+        "generate_plot": true,
+        "stations_url": "https://hub.arcgis.com/api/v3/datasets/5365d814bbdd4062a59234eea7d70db7_2/downloads/data?format=shp&spatialRefId=3116&where=1%3D1",
+        "roads_url": "https://hub.arcgis.com/api/v3/datasets/4f5282678c72406bb19f7fbf22886bbf_5/downloads/data?format=shp&spatialRefId=3116&where=1%3D1",
+        "connections_url": "https://hub.arcgis.com/api/v3/datasets/68d51aada9f54e229237449dd0f8f8d9_4/downloads/data?format=shp&spatialRefId=3116&where=1%3D1"
+    },
     "sampled_dates": null,
     "sampled_stations": null,
     "avg_profile": {

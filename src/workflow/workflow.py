@@ -18,6 +18,7 @@ from src.workflow.steps.step1_sample_dates import run as run_step1
 from src.workflow.steps.step2_download_files import run as run_step2
 from src.workflow.steps.step3_sample_stations import run as run_step3
 from src.workflow.steps.step4_populate_counts import run as run_step4
+from src.workflow.steps.step5_generate_network import run as run_step5
 
 # Registry of all workflow steps
 STEPS = {
@@ -25,6 +26,7 @@ STEPS = {
     2: ("Download Daily Data", run_step2),
     3: ("Sample Stations", run_step3),
     4: ("Populate Database Counts", run_step4),
+    5: ("Generate Station Network", run_step5),
 }
 
 

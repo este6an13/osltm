@@ -208,10 +208,18 @@ def _merge_duplicates(
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def build_network() -> tuple[list[StationNode], list[NetworkEdge]]:
+def build_network(
+    stations_shp: Path | None = None,
+    roads_shp: Path | None = None,
+    connections_shp: Path | None = None,
+) -> tuple[list[StationNode], list[NetworkEdge]]:
     """Build the station network from shapefiles."""
-    stations_gdf = gpd.read_file(STATIONS_SHP)
-    roads_gdf = gpd.read_file(ROADS_SHP)
+    stations_shp = stations_shp or STATIONS_SHP
+    roads_shp = roads_shp or ROADS_SHP
+    connections_shp = connections_shp or CONNECTIONS_SHP
+
+    stations_gdf = gpd.read_file(stations_shp)
+    roads_gdf = gpd.read_file(roads_shp)
 
     log.info("Loaded %d stations and %d roads", len(stations_gdf), len(roads_gdf))
 
@@ -323,8 +331,8 @@ def build_network() -> tuple[list[StationNode], list[NetworkEdge]]:
     # ------------------------------------------------------------------
     # Cross-trazado connections (driven by Conexion Operacional shapefile)
     # ------------------------------------------------------------------
-    log.info("Loading conexiones operacionales from %s...", CONNECTIONS_SHP)
-    connections_gdf = gpd.read_file(CONNECTIONS_SHP)
+    log.info("Loading conexiones operacionales from %s...", connections_shp)
+    connections_gdf = gpd.read_file(connections_shp)
     log.info("Loaded %d connection points (search radius=%.0fm)",
              len(connections_gdf), CONNECTION_SEARCH_RADIUS_M)
 
@@ -580,13 +588,14 @@ def verify_network(nodes: list[StationNode], edges: list[NetworkEdge]) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 
-def main() -> None:
+def main(generate_plot: bool = True) -> None:
     nodes, edges = build_network()
     verify_network(nodes, edges)
 
     export_json(nodes, edges, OUTPUT_DIR / "network.json")
     export_csv(nodes, edges, OUTPUT_DIR)
-    plot_network(nodes, edges, OUTPUT_DIR / "network_map.png")
+    if generate_plot:
+        plot_network(nodes, edges, OUTPUT_DIR / "network_map.png")
 
     log.info("Done! Output in %s", OUTPUT_DIR)
 

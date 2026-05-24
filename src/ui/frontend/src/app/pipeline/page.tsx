@@ -13,7 +13,7 @@ interface PipelineMeta {
 
 export default function PipelinePage() {
   const [params, setParams] = useState<any>({});
-  const [selectedSteps, setSelectedSteps] = useState<number[]>([1, 2, 3, 4]);
+  const [selectedSteps, setSelectedSteps] = useState<number[]>([1, 2, 3, 4, 5]);
   const [runId, setRunId] = useState<string | null>(null);
   const [lastPipelineId, setLastPipelineId] = useState<string | null>(null);
   const [experiments, setExperiments] = useState<PipelineMeta[]>([]);
@@ -417,6 +417,33 @@ export default function PipelinePage() {
                   </div>
                 )}
 
+                {/* Step 5 */}
+                {params.step5 && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 5 — Station Network</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          <input type="checkbox" checked={params.step5.force_redownload || false} onChange={e => handleParamChange('step5', 'force_redownload', e.target.checked)} style={{ accentColor: 'var(--accent-primary)', width: '1rem', height: '1rem' }} />
+                          Force Redownload Shapefiles
+                        </label>
+                      </div>
+                      <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          <input type="checkbox" checked={params.step5.force_regenerate || false} onChange={e => handleParamChange('step5', 'force_regenerate', e.target.checked)} style={{ accentColor: 'var(--accent-primary)', width: '1rem', height: '1rem' }} />
+                          Force Regenerate Network
+                        </label>
+                      </div>
+                      <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          <input type="checkbox" checked={params.step5.generate_plot !== false} onChange={e => handleParamChange('step5', 'generate_plot', e.target.checked)} style={{ accentColor: 'var(--accent-primary)', width: '1rem', height: '1rem' }} />
+                          Generate Network Map
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Right Column: Terminal & Run Actions */}
@@ -441,10 +468,16 @@ export default function PipelinePage() {
                 <div style={{ padding: '1rem', borderTop: '1px solid #27272a', background: '#121212' }}>
                   <h3 style={{ fontSize: '0.85rem', marginBottom: '0.75rem', color: '#e4e4e7', fontWeight: 600 }}>Steps to Run</h3>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                    {[1, 2, 3, 4].map(step => (
-                      <label key={step} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#e4e4e7', fontSize: '0.85rem' }}>
-                        <input type="checkbox" checked={selectedSteps.includes(step)} onChange={() => toggleStep(step)} style={{ accentColor: 'var(--accent-primary)' }} />
-                        <span>Step {step}</span>
+                    {[
+                      { num: 1, label: 'Date Sampling' },
+                      { num: 2, label: 'Download Data' },
+                      { num: 3, label: 'Station Sampling' },
+                      { num: 4, label: 'Populate Counts' },
+                      { num: 5, label: 'Station Network' },
+                    ].map(({ num, label }) => (
+                      <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#e4e4e7', fontSize: '0.85rem' }}>
+                        <input type="checkbox" checked={selectedSteps.includes(num)} onChange={() => toggleStep(num)} style={{ accentColor: 'var(--accent-primary)' }} />
+                        <span>{num}. {label}</span>
                       </label>
                     ))}
                   </div>

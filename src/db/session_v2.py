@@ -7,6 +7,7 @@ from src.db.config import Base
 from src.repo.v2.counts_15min.models import Counts15Min
 
 # Import models so they register with Base
+from src.repo.v2.network.models import NetworkNode, NetworkEdge
 from src.repo.v2.processing.models import ProcessedFile
 from src.repo.v2.stations.models import Station
 from src.utils.logging import logger
@@ -15,6 +16,8 @@ print(
     Station,
     Counts15Min,
     ProcessedFile,
+    NetworkNode,
+    NetworkEdge,
 )
 
 # BASE_DIR to access the database from notebooks
