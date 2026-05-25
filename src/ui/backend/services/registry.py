@@ -22,6 +22,23 @@ class ScriptDef(BaseModel):
 # Based on EXPERIMENTS_PLAYBOOK.md and WORKFLOW_REFERENCE.md
 
 SCRIPTS = {
+    # Network Analysis
+    "network/analyze": ScriptDef(
+        module="src.workflow.scripts.network.analyze_network",
+        name="Network Topology Analysis",
+        description="Calculate node centralities and generate interactive graph layouts.",
+        category="network",
+        output_dir="network",
+        params=[
+            ScriptParam(
+                name="layout", 
+                type="choice", 
+                choices=["kamada_kawai", "spring", "spectral", "circular", "shell", "spiral", "planar"], 
+                default="kamada_kawai",
+                description="Layout algorithm for abstract graph generation"
+            ),
+        ]
+    ),
     # Profiles
     "profiles/fpca_per_station": ScriptDef(
         module="src.workflow.scripts.profiles.fpca_per_station",

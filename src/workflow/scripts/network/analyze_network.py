@@ -195,23 +195,20 @@ def main() -> None:
         help="Algorithm for abstract graph layouts"
     )
     parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="src/workflow/results/network",
+        help="Directory to save the analysis outputs"
+    )
+    parser.add_argument(
         "--params",
         type=str,
-        default="src/workflow/params.json",
-        help="Path to pipeline params file (to extract pipeline_id)"
+        default=None,
+        help="Path to parameters file (provided by UI runner, ignored here)"
     )
     args = parser.parse_args()
 
-    # Determine output directory based on pipeline_id if available
-    output_dir = BASE_OUTPUT_DIR
-    try:
-        with open(args.params, "r") as f:
-            params = json.load(f)
-        pipeline_id = params.get("pipeline_id")
-        if pipeline_id:
-            output_dir = output_dir / pipeline_id
-    except Exception as e:
-        log.warning("Could not read pipeline_id from %s: %s", args.params, e)
+    output_dir = Path(args.output_dir)
 
     # 1. Load data
     G_full = load_graph_from_db()
@@ -295,7 +292,11 @@ def main() -> None:
         title=f"Transmilenio Network ({args.layout} layout) - Closeness Centrality",
     )
         
-    log.info("Analysis complete! All plots saved to %s", output_dir)
+    # 5. Export JSON
+    with open(output_dir / "network_graph.json", "w", encoding="utf-8") as f:
+        json.dump(nx.node_link_data(G), f, indent=2, ensure_ascii=False)
+        
+    log.info("Analysis complete! All plots and JSON saved to %s", output_dir)
 
 
 if __name__ == "__main__":

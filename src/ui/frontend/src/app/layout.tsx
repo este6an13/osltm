@@ -28,6 +28,7 @@ export default function RootLayout({
               <Link href="/pipeline" className="nav-link">Data Pipeline</Link>
               
               <div className="nav-section">Analysis</div>
+              <Link href="/analysis/network" className="nav-link">Network</Link>
               <Link href="/analysis/profiles" className="nav-link">Profiles</Link>
               <Link href="/analysis/intensity" className="nav-link">Intensity</Link>
               
