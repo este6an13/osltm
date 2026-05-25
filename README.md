@@ -62,6 +62,21 @@ osltm/
 uv sync
 ```
 
+## Running the Web UI
+
+The project includes a full-featured web interface to run experiments and view results interactively. It consists of a FastAPI backend and a Next.js frontend.
+
+```bash
+# Terminal 1: Start the backend API
+uv run uvicorn src.ui.backend.main:app --reload
+
+# Terminal 2: Start the frontend (from the frontend folder)
+cd src/ui/frontend
+npm run dev
+```
+
+Navigate to `http://localhost:3000` in your browser.
+
 ## Data Pipeline
 
 The pipeline has 4 sequential steps, configured via `src/workflow/params.json`:

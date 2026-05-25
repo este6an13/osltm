@@ -15,8 +15,8 @@
 ## Quick Start (Full Pipeline)
 
 ```bash
-# 1. Data pipeline — sample dates, download files, sample stations, populate DB
-uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 1,2,3,4
+# 1. Data pipeline — sample dates, download files, sample stations, populate DB, generate network
+uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 1,2,3,4,5
 
 # 2. Profile analysis
 uv run python -m src.workflow.scripts.profiles.fpca_per_station --stations 03000 07112 06000 40000 02205 09121
@@ -46,7 +46,7 @@ uv run python -m src.workflow.scripts.models.hawkes.step1_fit --stations 03000 0
 Fetches and processes raw data into the database. Run once (or when parameters change).
 
 ```bash
-uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 1,2,3,4
+uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 1,2,3,4,5
 ```
 
 | Step | What It Does |
@@ -55,8 +55,9 @@ uv run python -m src.workflow.workflow --params src/workflow/params.json --steps
 | 2 | Downloads daily check-in/checkout CSVs |
 | 3 | Scans files and samples stations |
 | 4 | Computes 15-min bin counts and populates DB |
+| 5 | Generates the static topological and geographical network structure |
 
-Steps can be run individually (e.g., `--steps 3,4` to re-sample stations without re-downloading).
+Steps can be run individually (e.g., `--steps 3,4` to re-sample stations without re-downloading, or `--steps 5` to just build the network).
 
 > [!TIP]
 > After running, verify that `src/workflow/data/sampled_dates.csv` and `src/workflow/data/sampled_stations.csv` exist.
@@ -249,6 +250,26 @@ uv run python -m src.workflow.scripts.models.hawkes.step3_simulate \
 | `hawkes_simulated_events_checkins.csv` | Synthetic raw timestamps `[Fecha_Transaccion, Estacion_Parada]` |
 | `hawkes_simulated_binned_checkins.csv` | Synthetic 15-minute counts generated from the raw timestamps |
 | `hawkes_simulation_comparison_checkins.png` | Plot comparing mean synthetic counts vs observed empirical counts |
+
+---
+
+### Stage 5 — Network Analysis
+
+Tests network topology and topological characteristics using graph theory.
+
+```bash
+# Calculate node centralities and generate graph layouts
+uv run python -m src.workflow.scripts.network.analyze_network --layout kamada_kawai
+
+# Use a different layout algorithm
+uv run python -m src.workflow.scripts.network.analyze_network --layout spiral
+```
+
+| Output | What it shows |
+|---|---|
+| `network_graph.json` | The graph node/link data with centralities |
+| `network_geo_*.png` | Geo-spatial network plots colored by centrality |
+| `network_abstract_*.png` | Abstract force-directed graphs |
 
 ---
 

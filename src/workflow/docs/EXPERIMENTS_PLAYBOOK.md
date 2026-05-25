@@ -57,7 +57,7 @@ ENVELOPE="03000 05105 09116"
 ### 1.1 Full Pipeline (fresh run)
 
 ```bash
-# Run all 4 steps with current params
+# Run all 5 steps with current params
 uv run python -m src.workflow.workflow --params src/workflow/params.json --steps all
 ```
 
@@ -72,6 +72,9 @@ uv run python -m src.workflow.workflow --params src/workflow/params.json --steps
 
 # Step 4 only — re-populate DB (useful after schema changes)
 uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 4
+
+# Step 5 only — re-generate network geometry
+uv run python -m src.workflow.workflow --params src/workflow/params.json --steps 5
 ```
 
 ---
@@ -375,6 +378,25 @@ uv run python -m src.workflow.scripts.models.hawkes.step3_simulate \
 
 ---
 
+## Part 5 — Network Analysis Experiments
+
+### 5.1 Network Topology & Centrality
+
+Generate node centralities and create geographic and abstract graph layouts.
+
+```bash
+# Default (kamada_kawai layout)
+uv run python -m src.workflow.scripts.network.analyze_network
+
+# Spiral layout
+uv run python -m src.workflow.scripts.network.analyze_network --layout spiral
+
+# Circular layout
+uv run python -m src.workflow.scripts.network.analyze_network --layout circular
+```
+
+---
+
 ## Experiment Progression (Suggested Order)
 
 For resuming or starting fresh, follow this order:
@@ -389,6 +411,7 @@ For resuming or starting fresh, follow this order:
 7. Poisson test → Fano across days (4.2) → Fano within bins (4.3)
 8. Intensity    → Time rescaling QQ (4.1)
 9. Hawkes       → Hawkes fit (4.4) → Hawkes diagnostics (4.4)
+10. Network     → Network Topology & Centrality (5.1)
 ```
 
 ### Quick Smoke Test (runs fast)
