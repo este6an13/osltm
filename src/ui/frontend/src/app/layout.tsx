@@ -38,6 +38,9 @@ export default function RootLayout({
               <Link href="/models/avg_profile" className="nav-link">Average Profile</Link>
               <Link href="/models/cluster" className="nav-link">Cluster Process</Link>
 
+              <div className="nav-section">OD Estimation</div>
+              <Link href="/od/gravity" className="nav-link">Gravity Model</Link>
+
               <div className="nav-section">Real-Time</div>
               <Link href="/realtime" className="nav-link">⏱ Live Simulation</Link>
             </nav>

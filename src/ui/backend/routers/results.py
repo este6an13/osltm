@@ -112,3 +112,74 @@ def delete_experiment(output_dir: str, pipeline_id: str, experiment_id: str):
         
     shutil.rmtree(exp_path)
     return {"status": "deleted", "experiment_id": experiment_id}
+
+
+@router.get("/gravity_od/{pipeline_id}/{experiment_id}/matrix")
+def get_gravity_od_matrix(pipeline_id: str, experiment_id: str):
+    """
+    Parse the estimated_od_probabilities.csv into a structured JSON format 
+    suitable for smooth, interactive frontend animations.
+    """
+    # 1. Resolve file path
+    file_path = None
+    if pipeline_id != "default" and experiment_id != "default":
+        try:
+            file_path = _safe_path(RESULTS_DIR, "gravity_od", pipeline_id, experiment_id, "estimated_od_probabilities.csv")
+        except HTTPException:
+            pass
+            
+    if file_path is None or not file_path.exists():
+        # Fallback to the canonical one if exists
+        fallback = RESULTS_DIR / "gravity_od" / "estimated_od_probabilities.csv"
+        if fallback.exists():
+            file_path = fallback
+        else:
+            raise HTTPException(status_code=404, detail="Estimated OD probabilities CSV not found")
+            
+    # 2. Read and parse
+    try:
+        df = pd.read_csv(file_path)
+        # Sort values to ensure alignment
+        df["origin_code"] = df["origin_code"].astype(str).str.zfill(5)
+        df["destination_code"] = df["destination_code"].astype(str).str.zfill(5)
+        
+        # Get sorted unique station codes
+        station_codes = sorted(df["origin_code"].unique())
+        code_to_idx = {code: idx for idx, code in enumerate(station_codes)}
+        
+        # Map codes to names
+        name_map = {}
+        for _, row in df.drop_duplicates("origin_code").iterrows():
+            name_map[row["origin_code"]] = row["origin_name"]
+        for _, row in df.drop_duplicates("destination_code").iterrows():
+            name_map[row["destination_code"]] = row["destination_name"]
+            
+        station_names = [name_map.get(code, code) for code in station_codes]
+        
+        # Get time bins in chronological order
+        time_bins = sorted(df["time_bin"].unique(), key=lambda c: int(c.replace("t_", "")))
+        
+        # Build matrices
+        flows = {t: [[0.0] * len(station_codes) for _ in range(len(station_codes))] for t in time_bins}
+        probs = {t: [[0.0] * len(station_codes) for _ in range(len(station_codes))] for t in time_bins}
+        
+        for _, row in df.iterrows():
+            t = row["time_bin"]
+            o = row["origin_code"]
+            d = row["destination_code"]
+            if o in code_to_idx and d in code_to_idx:
+                oi = code_to_idx[o]
+                di = code_to_idx[d]
+                flows[t][oi][di] = float(row["estimated_flow"])
+                probs[t][oi][di] = float(row["routing_probability"])
+                
+        return {
+            "station_codes": station_codes,
+            "station_names": station_names,
+            "time_bins": time_bins,
+            "flows": flows,
+            "probabilities": probs,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse OD CSV: {str(e)}")
+

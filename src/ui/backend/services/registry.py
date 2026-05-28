@@ -392,4 +392,20 @@ SCRIPTS = {
             ScriptParam(name="n_days", type="int", default=30),
         ]
     ),
+    
+    # OD Estimation
+    "od/gravity_od": ScriptDef(
+        module="src.workflow.scripts.od.gravity_od",
+        name="Gravity Model & IPF",
+        description="Estimates time-varying passenger routing probabilities P(j | i, t) using a Doubly-Constrained Gravity Model & IPF.",
+        category="od",
+        output_dir="gravity_od",
+        params=[
+            ScriptParam(name="day_type", type="choice", choices=["WD", "SA", "SU", "HO"], default="WD", description="Day-type to model"),
+            ScriptParam(name="cutoff_date", type="str", default="2025-11-30", description="YYYY-MM-DD cutoff to filter historical validation data"),
+            ScriptParam(name="gamma", type="float", default=0.0001, description="Friction decay parameter per meter"),
+            ScriptParam(name="min_days", type="int", default=5, description="Minimum replicate days required per station/day-type"),
+            ScriptParam(name="stations", type="station_list", description="Subset of station codes to analyze (optional)")
+        ]
+    ),
 }

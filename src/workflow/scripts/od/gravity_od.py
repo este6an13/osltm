@@ -276,10 +276,30 @@ def run_gravity_od(
     time_max = step4_params.get("time_max", 2300)
     time_step = step4_params.get("time_step", 15)
 
-    persistence_dir = params_path.parent / "data"
+    # Robust multi-path resolution of the folder containing sampled_dates.csv and sampled_stations.csv
+    possible_dirs = [
+        params_path.parent.parent,                # e.g. src/workflow/data (for src/workflow/data/pipeline_XXXX/params.json)
+        params_path.parent / "data",              # e.g. src/workflow/data (for src/workflow/params.json)
+        params_path.parent,                       # e.g. direct folder lookup
+        Path("src/workflow/data"),                # relative workspace fallback
+    ]
+    
+    persistence_dir = None
+    for d in possible_dirs:
+        if d and (d / "sampled_dates.csv").exists():
+            persistence_dir = d
+            break
+            
+    if persistence_dir is None:
+        persistence_dir = Path("src/workflow/data")
+
+    print(f"📂 Resolved persistence data directory to: {persistence_dir.resolve()}")
     sampled_dates, sampled_stations = load_persisted_data(persistence_dir)
     if not sampled_dates:
-        raise ValueError("No sampled dates found. Run workflow steps 1-4 first.")
+        raise ValueError(
+            f"No sampled dates found in '{persistence_dir}'. "
+            "Please check that workflow steps 1-4 have run and produced sampled_dates.csv."
+        )
 
     # Stations list
     if sampled_stations:
