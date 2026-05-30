@@ -1,63 +1,69 @@
 {
-    "seed": 42,
-    "step1": {
-        "start_date": "2024-06-25",
-        "end_date": "2026-01-31",
-        "n_per_stratum": 2,
-        "days_offset": 2
-    },
-    "step2": {
-        "type": "both",
-        "ins_path": "data/check_ins/daily",
-        "outs_path": "data/check_outs/daily",
-        "force_redownload": false,
-        "drop_columns": true,
-        "process_checkins": true,
-        "process_checkouts": true
-    },
-    "step3": {
-        "n_files": 10,
-        "n_stations": 20,
-        "reference_csv_path": "src/workflow/data/stations_reference.csv"
-    },
-    "step4": {
-        "persistence_dir": "src/workflow/data",
-        "process_checkins": true,
-        "process_checkouts": true,
-        "time_min": 400,
-        "time_max": 2300,
-        "time_step": 15,
-        "delta_minutes": 1
-    },
-    "step5": {
-        "force_redownload": false,
-        "force_regenerate": false,
-        "generate_plot": true,
-        "stations_url": "https://hub.arcgis.com/api/v3/datasets/5365d814bbdd4062a59234eea7d70db7_2/downloads/data?format=shp&spatialRefId=3116&where=1%3D1",
-        "roads_url": "https://hub.arcgis.com/api/v3/datasets/4f5282678c72406bb19f7fbf22886bbf_5/downloads/data?format=shp&spatialRefId=3116&where=1%3D1",
-        "connections_url": "https://hub.arcgis.com/api/v3/datasets/68d51aada9f54e229237449dd0f8f8d9_4/downloads/data?format=shp&spatialRefId=3116&where=1%3D1"
-    },
-    "sampled_dates": null,
-    "sampled_stations": null,
-    "avg_profile": {
-        "cutoff_date": "2025-11-30",
-        "output_dir": "src/workflow/results/avg_profile",
-        "min_days": 5
-    },
-    "lgcp": {
-        "cutoff_date": "2025-11-30",
-        "output_dir": "src/workflow/results/lgcp_backtest",
-        "min_days_fit": 10,
-        "min_days_sim": 5
-    },
-    "hawkes": {
-        "cutoff_date": "2025-11-30",
-        "output_dir": "src/workflow/results/hawkes_backtest"
-    },
-    "cluster": {
-        "cutoff_date": "2025-11-30",
-        "dbscan_eps": 60,
-        "dbscan_min_samples": 3,
-        "output_dir": "src/workflow/results/cluster_fit"
-    }
+  "seed": 42,
+  "step1": {
+    "start_date": "2024-06-25",
+    "end_date": "2026-01-31",
+    "n_per_stratum": 2,
+    "days_offset": 2
+  },
+  "step2": {
+    "type": "both",
+    "ins_path": "data/check_ins/daily",
+    "outs_path": "data/check_outs/daily",
+    "force_redownload": false,
+    "drop_columns": true,
+    "process_checkins": true,
+    "process_checkouts": true
+  },
+  "step3": {
+    "n_files": 10,
+    "n_stations": 20,
+    "reference_csv_path": "src/workflow/data/stations_reference.csv"
+  },
+  "step4": {
+    "persistence_dir": "src/workflow/data",
+    "process_checkins": true,
+    "process_checkouts": true,
+    "time_min": 400,
+    "time_max": 2300,
+    "time_step": 15,
+    "delta_minutes": 1
+  },
+  "step5": {
+    "force_redownload": false,
+    "force_regenerate": false,
+    "generate_plot": true,
+    "stations_url": "https://hub.arcgis.com/api/v3/datasets/5365d814bbdd4062a59234eea7d70db7_2/downloads/data?format=shp&spatialRefId=3116&where=1%3D1",
+    "roads_url": "https://hub.arcgis.com/api/v3/datasets/4f5282678c72406bb19f7fbf22886bbf_5/downloads/data?format=shp&spatialRefId=3116&where=1%3D1",
+    "connections_url": "https://hub.arcgis.com/api/v3/datasets/68d51aada9f54e229237449dd0f8f8d9_4/downloads/data?format=shp&spatialRefId=3116&where=1%3D1"
+  },
+  "sampled_dates": null,
+  "sampled_stations": null,
+  "avg_profile": {
+    "cutoff_date": "2025-11-30",
+    "output_dir": "src/workflow/results/avg_profile",
+    "min_days": 5
+  },
+  "lgcp": {
+    "cutoff_date": "2025-11-30",
+    "output_dir": "src/workflow/results/lgcp_backtest",
+    "min_days_fit": 10,
+    "min_days_sim": 5
+  },
+  "hawkes": {
+    "cutoff_date": "2025-11-30",
+    "output_dir": "src/workflow/results/hawkes_backtest"
+  },
+  "cluster": {
+    "cutoff_date": "2025-11-30",
+    "dbscan_eps": 60,
+    "dbscan_min_samples": 3,
+    "output_dir": "src/workflow/results/cluster_fit"
+  },
+  "step6": {
+    "output_dir": "data/routes",
+    "output_filename": "transmilenio_routes_stations.csv",
+    "tipo": "TransMilenio",
+    "sleep_delay": 0.05
+  }
 }

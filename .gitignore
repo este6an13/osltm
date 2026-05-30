@@ -1,4 +1,6 @@
-data/
+/data/*
+!/data/routes/
+**/*/data/
 osltm.db
 osltm.db-journal
 osltm_v1.db-journal
