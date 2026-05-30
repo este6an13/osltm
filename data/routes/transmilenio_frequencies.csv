@@ -1,0 +1,87 @@
+line_id,type,name,destination,frequency_peak,frequency_offpeak,operation_days,schedule,accessible
+10036,TRONCAL,G45,San Mateo,10 min,12 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 08:00:00,SÍ
+10039,TRONCAL,M47,M. Nacional,4 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+10056,TRONCAL,2,Museo Nacional,5 min,6 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+10067,TRONCAL,G47,P. Sur,4 min,4 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 23:00:00,SÍ
+10070,TRONCAL,2,P. 20 de julio,---,---,Lunes - Domingo,---,SÍ
+10070,TRONCAL,2,P. 20 de julio,5 min,6 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+10073,TRONCAL,C25,Portal Suba,4 min,4 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 22:00:00,SÍ
+10074,TRONCAL,L25,P. 20 de Julio,4 min,4 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 22:00:00,SÍ
+10075,TRONCAL,B10,Portal Norte,4 min,4 min,Lunes - Domingo,Desde: 05:30:00 Hasta: 21:30:00,SÍ
+10076,TRONCAL,D10,Portal 80,4 min,4 min,Lunes - Domingo,Desde: 06:00:00 Hasta: 22:00:00,SÍ
+11163,TRONCAL,F23,Américas,2 min,3 min,Lunes - Domingo,Desde: 04:45:00 Hasta: 23:00:00,SÍ
+11231,TRONCAL,1,Universidades,6 min,6 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+11381,TRONCAL,H21,Portal Tunal,4 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+11382,TRONCAL,D21,Portal 80,4 min,4 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:08:00,SÍ
+11458,TRONCAL,G43,San Mateo,3 min,3 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 23:00:00,SÍ
+11627,TRONCAL,7,Polo,4 min,5 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+11712,TRONCAL,J23,Aguas,2 min,3 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+11724,TRONCAL,M51,Museo Nacional,4 min,4 min,Lunes - Sábado,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+11725,TRONCAL,F51,P. Américas,4 min,4 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 23:00:00,SÍ
+11747,TRONCAL,4,Héroes,6 min,6 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:05:00,SÍ
+11851,TRONCAL,1,P. Eldorado,---,---,Lunes - Domingo,---,SÍ
+11851,TRONCAL,1,P. Eldorado,6 min,6 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+11853,TRONCAL,4,Portal Sur,6 min,6 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:30:00,SÍ
+11856,TRONCAL,7,Portal Suba,4 min,5 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 00:00:00,SÍ
+11868,TRONCAL,F32,P. Américas,4 min,4 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 20:00:00,SÍ
+11870,TRONCAL,L41,Bicentenario,4 min,4 min,Lunes - Sábado,Desde: 04:30:00 Hasta: 21:00:00,SÍ
+11871,TRONCAL,G42,San Mateo,3 min,3 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 23:30:00,SÍ
+11873,TRONCAL,F60,P. Américas,3 min,3 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 22:00:00,SÍ
+11875,TRONCAL,F26,P. Américas NQS,7 min,7 min,Lunes - Sábado,Desde: 12:00:00 Hasta: 18:00:00,SÍ
+11878,TRONCAL,G41,San Mateo,4 min,4 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 21:00:00,SÍ
+11879,TRONCAL,E42,7 de Agosto,3 min,3 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+11885,TRONCAL,3,Corferias,4 min,4 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:15:00,SÍ
+11886,TRONCAL,3,Portal Tunal,4 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:45:00,SÍ
+11907,TRONCAL,G30,Portal Sur,4 min,5 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 15:00:00,SÍ
+11908,TRONCAL,C30,Portal Suba,4 min,5 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 15:00:00,SÍ
+11909,TRONCAL,C17,P. Suba_NQS,3 min,3 min,Lunes - Sábado,Desde: 04:00:00 Hasta: 15:00:00,SÍ
+11910,TRONCAL,H17,P. Usme_NQS,3 min,3 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 15:00:00,SÍ
+11926,TRONCAL,K43,P. ElDorado,3 min,3 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+11931,TRONCAL,G45,Portal Sur,10 min,12 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 08:00:00,SÍ
+12010,TRONCAL,6,Portal 80,5 min,6 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:40:00,SÍ
+12030,TRONCAL,L10,P. 20 de Julio_V2,4 min,5 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 23:00:00,SÍ
+12047,TRONCAL,C19,P. Suba,4 min,4 min,Lunes - Sábado,Desde: 05:30:00 Hasta: 22:00:00,SÍ
+12048,TRONCAL,F19,Banderas,4 min,4 min,Lunes - Sábado,Desde: 04:30:00 Hasta: 22:00:00,SÍ
+12066,TRONCAL,D20,Portal 80 v2,3 min,3 min,Lunes - Sábado,Desde: 06:00:00 Hasta: 20:00:00,SÍ
+12067,TRONCAL,H20,Portal Usme V2,3 min,3 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 20:00:00,SÍ
+12242,TRONCAL,6,Universidades,5 min,6 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:15:00,SÍ
+12243,TRONCAL,D24,P. 80,4 min,4 min,Lunes - Domingo,Desde: 06:00:00 Hasta: 21:00:00,SÍ
+12462,TRONCAL,K10,P.ElDorado V2,4 min,5 min,Lunes - Sábado,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+12467,TRONCAL,C15,Portal Suba,3 min,3 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:10:00,SÍ
+12558,TRONCAL,H13,P. Tunal,4 min,3 min,Lunes - Sábado,Desde: 06:30:00 Hasta: 22:00:00,SÍ
+12576,TRONCAL,J74,Universidades,5 min,5 min,Lunes - Sábado,Desde: 06:30:00 Hasta: 20:30:00,SÍ
+12612,TRONCAL,B28,P. Norte,2 min,3 min,Lunes - Sábado,Desde: 04:00:00 Hasta: 20:00:00,SÍ
+12616,TRONCAL,A60,Calle 76,3 min,3 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 21:30:00,SÍ
+12621,TRONCAL,B26,Alcalá NQS,7 min,7 min,Lunes - Sábado,Desde: 04:30:00 Hasta: 09:00:00,SÍ
+12622,TRONCAL,E32,NQS - CL 75,4 min,4 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 20:00:00,SÍ
+12639,TRONCAL,5,Av. Jiménez,3 min,3 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+12646,TRONCAL,H75,P. Usme,4 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+12811,TRONCAL,H54,Portal Usme V2,5 min,5 min,Lunes - Domingo,Desde: 05:30:00 Hasta: 23:00:00,SÍ
+12813,TRONCAL,H15,Portal Tunal,---,---,Lunes - Domingo,---,SÍ
+12814,TRONCAL,B13,P. Norte,4 min,3 min,Lunes - Sábado,Desde: 05:30:00 Hasta: 21:30:00,SÍ
+12815,TRONCAL,F28,P. Américas,2 min,3 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 20:00:00,SÍ
+12818,TRONCAL,J24,Universidades,4 min,4 min,Lunes - Domingo,Desde: 05:30:00 Hasta: 20:30:00,SÍ
+12819,TRONCAL,B23,Alcalá,8 min,6 min,Lunes - Sábado,Desde: 05:30:00 Hasta: 22:00:00,SÍ
+12820,TRONCAL,K23,P. ElDorado,8 min,6 min,Lunes - Sábado,Desde: 05:30:00 Hasta: 22:00:00,SÍ
+12825,TRONCAL,M83,Museo Nacional,4 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 22:30:00,SÍ
+12826,TRONCAL,H83,Portal Usme,4 min,4 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 22:30:00,SÍ
+12841,TRONCAL,5,P. Américas,3 min,3 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:55:00,SÍ
+12842,TRONCAL,B75,P. Norte,4 min,4 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+12871,TRONCAL,D22,Portal 80,4 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+12872,TRONCAL,G22,Portal Sur,4 min,4 min,Lunes - Domingo,Desde: 05:00:00 Hasta: 23:00:00,SÍ
+12873,TRONCAL,G12,P. Sur,3 min,3 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+12874,TRONCAL,B12,P Norte,3 min,3 min,Lunes - Domingo,Desde: 04:00:00 Hasta: 23:00:00,SÍ
+12877,TRONCAL,K54,Portal ElDorado ART,5 min,5 min,Lunes - Domingo,Desde: 23:50:00 Hasta: 23:50:00,SÍ
+12879,TRONCAL,B72,Toberín,3 min,3 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+12881,TRONCAL,H72,P. Usme,3 min,3 min,Lunes - Domingo,Desde: 05:30:00 Hasta: 23:00:00,SÍ
+12933,TRONCAL,B74,P. Norte_V2,5 min,5 min,Lunes - Sábado,Desde: 07:00:00 Hasta: 20:30:00,SÍ
+13007,TRONCAL,B11,Terminal,4 min,4 min,Lunes - Sábado,Desde: 06:00:00 Hasta: 21:30:00,SÍ
+13008,TRONCAL,G11,P. Sur,4 min,4 min,Lunes - Sábado,Desde: 06:30:00 Hasta: 22:00:00,SÍ
+13009,TRONCAL,8,Guatoque,3 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+13010,TRONCAL,8,Terminal,3 min,4 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:35:00,SÍ
+13011,TRONCAL,B16,Terminal,5 min,5 min,Lunes - Sábado,Desde: 05:30:00 Hasta: 22:00:00,SÍ
+13012,TRONCAL,K16,P.ElDorado,5 min,5 min,Lunes - Sábado,Desde: 05:30:00 Hasta: 22:00:00,SÍ
+13017,TRONCAL,B18,Terminal,4 min,5 min,Lunes - Domingo,Desde: 04:30:00 Hasta: 23:00:00,SÍ
+13018,TRONCAL,L18,P. 20 de Julio,4 min,5 min,Lunes - Domingo,Desde: 05:30:00 Hasta: 23:00:00,SÍ
+13037,TRONCAL,B46,Portal Norte,4 min,4 min,Lunes - Sábado,Desde: 04:00:00 Hasta: 20:00:00,SÍ
+13046,TRONCAL,G46,San Mateo,4 min,4 min,Lunes - Sábado,Desde: 05:00:00 Hasta: 20:00:00,SÍ

@@ -65,5 +65,11 @@
     "output_filename": "transmilenio_routes_stations.csv",
     "tipo": "TransMilenio",
     "sleep_delay": 0.05
+  },
+  "step7": {
+    "output_dir": "data/routes",
+    "output_filename": "transmilenio_frequencies.csv",
+    "tipo": "Troncal",
+    "sleep_delay": 0.1
   }
 }

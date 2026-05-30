@@ -20,6 +20,7 @@ from src.workflow.steps.step3_sample_stations import run as run_step3
 from src.workflow.steps.step4_populate_counts import run as run_step4
 from src.workflow.steps.step5_generate_network import run as run_step5
 from src.workflow.steps.step6_extract_routes import run as run_step6
+from src.workflow.steps.step7_extract_frequencies import run as run_step7
 
 # Registry of all workflow steps
 STEPS = {
@@ -29,6 +30,7 @@ STEPS = {
     4: ("Populate Database Counts", run_step4),
     5: ("Generate Station Network", run_step5),
     6: ("Extract Routes and Stations", run_step6),
+    7: ("Extract Route Frequencies", run_step7),
 }
 
 
