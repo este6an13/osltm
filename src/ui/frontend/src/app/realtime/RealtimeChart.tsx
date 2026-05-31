@@ -97,7 +97,7 @@ export default function RealtimeChart({
         time: key,
         'Model':     modelBins[i] || null,
         'Model (Corrected)': (currentRatio !== undefined && modelBins[i]) ? modelBins[i] * currentRatio : null,
-        'Real':      hasRealData ? (realBins[i] || null) : undefined,
+        'Real':      hasRealData ? (realBins[i] || null) : null,
         'Forecast (Raw)':        fc?.raw  ?? null,
         'Forecast (Corrected)':  fc?.corr ?? null,
       });

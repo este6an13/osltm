@@ -178,7 +178,7 @@ export default function RealtimePage() {
                 const dt = inv?.count_types?.[ct] ? Object.keys(inv.count_types[ct])[0] || 'WD' : 'WD';
                 const modKeys = inv?.count_types?.[ct]?.[dt] ? Object.keys(inv.count_types[ct][dt]) : [];
                 const mod = modKeys[0] || '';
-                const runs = mod ? inv.count_types[ct][dt][mod] : [];
+                const runs = (mod && inv?.count_types?.[ct]?.[dt]?.[mod]) ? inv.count_types[ct][dt][mod] : [];
                 setCfg(c => ({ ...c, count_type: ct, day_type: dt, model: mod as any, run_id: runs[0]?.run_id || '', date_str: '' }));
               }}>
               <option value="checkins">Check-ins</option>
@@ -197,7 +197,7 @@ export default function RealtimePage() {
                 const dt = inv?.count_types?.[ct] ? Object.keys(inv.count_types[ct])[0] || 'WD' : 'WD';
                 const modKeys = inv?.count_types?.[ct]?.[dt] ? Object.keys(inv.count_types[ct][dt]) : [];
                 const mod = modKeys[0] || '';
-                const runs = mod ? inv.count_types[ct][dt][mod] : [];
+                const runs = (mod && inv?.count_types?.[ct]?.[dt]?.[mod]) ? inv.count_types[ct][dt][mod] : [];
                 setCfg(c => ({ ...c, station_codes: [sc], day_type: dt, model: mod as any, run_id: runs[0]?.run_id || '', date_str: '' }));
               }}>
               <option value="" disabled>Select a station...</option>
@@ -218,7 +218,7 @@ export default function RealtimePage() {
                 const inv = inventory.find(i => i.station_code === cfg.station_codes[0]);
                 const modKeys = inv?.count_types?.[cfg.count_type]?.[dt] ? Object.keys(inv.count_types[cfg.count_type][dt]) : [];
                 const mod = modKeys[0] || '';
-                const runs = mod ? inv.count_types[cfg.count_type][dt][mod] : [];
+                const runs = (mod && inv?.count_types?.[cfg.count_type]?.[dt]?.[mod]) ? inv.count_types[cfg.count_type][dt][mod] : [];
                 setCfg(c => ({ ...c, day_type: dt, model: mod as any, run_id: runs[0]?.run_id || '', date_str: '' }));
               }}>
               {availableDayTypes.map(dt => (
@@ -272,7 +272,7 @@ export default function RealtimePage() {
             </div>
           )}
           
-          {cfg.model === 'hawkes_kappa' && (
+          {(cfg.model as string) === 'hawkes_kappa' && (
             <span style={{ fontSize: '0.7rem', color: '#6c757d', display: 'block', marginBottom: '0.65rem' }}>Option C available for Hawkes</span>
           )}
 

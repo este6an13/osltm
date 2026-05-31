@@ -408,4 +408,19 @@ SCRIPTS = {
             ScriptParam(name="stations", type="station_list", description="Subset of station codes to analyze (optional)")
         ]
     ),
+    
+    # Service Modeling
+    "service/headway_fitting": ScriptDef(
+        module="src.workflow.scripts.service.headway_fitting",
+        name="Bus Headway Stochastic Fitting",
+        description="Stochastically perturbs planned bus frequencies and fits Gamma, Erlang, and Log-Normal models using MLE.",
+        category="service",
+        output_dir="headway_fitting",
+        params=[
+            ScriptParam(name="route_name", type="multi_choice", choices=["B12", "G12", "F23", "J23", "H75", "B75", "D20", "H20", "B13", "H13", "F28", "B28", "K10", "L10", "D21", "H21", "M47", "G47", "C30", "G30"], default=["B12"], description="Transit service route(s) to model"),
+            ScriptParam(name="period", type="choice", choices=["peak", "offpeak"], default="peak", description="Operating period of the day"),
+            ScriptParam(name="cv", type="float", default=0.25, description="Coefficient of Variation (traffic delay noise index)"),
+            ScriptParam(name="n_samples", type="int", default=1000, description="Number of headway intervals to simulate")
+        ]
+    ),
 }

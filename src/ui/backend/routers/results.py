@@ -79,7 +79,15 @@ def list_experiment_files(output_dir: str, pipeline_id: str, experiment_id: str)
 @router.get("/{output_dir}/{pipeline_id}/{experiment_id}/{filename}/view")
 def view_file(output_dir: str, pipeline_id: str, experiment_id: str, filename: str):
     """Preview a file — returns JSON for CSV, binary for images."""
-    file_path = _safe_path(RESULTS_DIR, output_dir, pipeline_id, experiment_id, filename)
+    file_path = None
+    if pipeline_id == "default" and experiment_id == "default":
+        fallback_path = RESULTS_DIR / output_dir / filename
+        if fallback_path.exists():
+            file_path = fallback_path
+
+    if file_path is None:
+        file_path = _safe_path(RESULTS_DIR, output_dir, pipeline_id, experiment_id, filename)
+
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -97,7 +105,15 @@ def view_file(output_dir: str, pipeline_id: str, experiment_id: str, filename: s
 @router.get("/{output_dir}/{pipeline_id}/{experiment_id}/{filename}/download")
 def download_file(output_dir: str, pipeline_id: str, experiment_id: str, filename: str):
     """Download a result file."""
-    file_path = _safe_path(RESULTS_DIR, output_dir, pipeline_id, experiment_id, filename)
+    file_path = None
+    if pipeline_id == "default" and experiment_id == "default":
+        fallback_path = RESULTS_DIR / output_dir / filename
+        if fallback_path.exists():
+            file_path = fallback_path
+
+    if file_path is None:
+        file_path = _safe_path(RESULTS_DIR, output_dir, pipeline_id, experiment_id, filename)
+
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(file_path), filename=filename)
@@ -182,4 +198,125 @@ def get_gravity_od_matrix(pipeline_id: str, experiment_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to parse OD CSV: {str(e)}")
+
+
+@router.get("/service/headway_fitting/{pipeline_id}/{experiment_id}/fit")
+def get_headway_fitting_results(pipeline_id: str, experiment_id: str, route: Optional[str] = None):
+    """
+    Load simulated_headways.csv and fitted_headway_report.json,
+    generate histogram bins and smooth PDF curves for Gamma, Erlang,
+    and Log-Normal fits. Returns them as a structured JSON object.
+    Supports query parameter `route` to view multiple fitted routes.
+    """
+    import numpy as np
+    import scipy.stats as stats
+    
+    # 1. Resolve output path
+    base_path = None
+    if pipeline_id != "default" and experiment_id != "default":
+        try:
+            base_path = _safe_path(RESULTS_DIR, "headway_fitting", pipeline_id, experiment_id)
+        except HTTPException:
+            pass
+            
+    if base_path is None or not base_path.exists():
+        # Fallback to the canonical one if exists
+        fallback = RESULTS_DIR / "headway_fitting"
+        if fallback.exists() and (fallback / "simulated_headways.csv").exists():
+            base_path = fallback
+        else:
+            raise HTTPException(status_code=404, detail="Headway fitting results not found")
+            
+    # Scan for available routes in this experiment folder
+    available_routes = []
+    if base_path.exists():
+        for f in base_path.iterdir():
+            if f.name.startswith("fitted_headway_report_") and f.name.endswith(".json"):
+                r = f.name.replace("fitted_headway_report_", "").replace(".json", "")
+                available_routes.append(r)
+    available_routes = sorted(available_routes)
+
+    # Determine which route to fetch
+    if not route:
+        if available_routes:
+            route = available_routes[0]
+        else:
+            route = None
+
+    if route:
+        report_file = base_path / f"fitted_headway_report_{route}.json"
+        samples_file = base_path / f"simulated_headways_{route}.csv"
+    else:
+        report_file = base_path / "fitted_headway_report.json"
+        samples_file = base_path / "simulated_headways.csv"
+    
+    if not report_file.exists() or not samples_file.exists():
+        raise HTTPException(status_code=404, detail=f"Required result files for route '{route}' not found")
+        
+    try:
+        # Load report
+        with open(report_file) as f:
+            report = json.load(f)
+            
+        # Load samples
+        df_samples = pd.read_csv(samples_file)
+        H = df_samples["headway_minutes"].values
+        
+        # Calculate histogram: 30 bins
+        counts, bin_edges = np.histogram(H, bins=30, density=True)
+        x_mid = (bin_edges[:-1] + bin_edges[1:]) / 2
+        
+        histogram = [
+            {
+                "bin_start": float(bin_edges[i]),
+                "bin_end": float(bin_edges[i+1]),
+                "x": float(x_mid[i]),
+                "density": float(counts[i])
+            }
+            for i in range(len(counts))
+        ]
+        
+        # Generate smooth curves
+        x_min = 0.1
+        x_max = float(np.max(H) * 1.1)
+        x_grid = np.linspace(x_min, x_max, 150)
+        
+        # Fits parameters
+        fits = report["fits"]
+        gam = fits["gamma"]["params"]
+        erl = fits["erlang"]["params"]
+        logn = fits["lognormal"]["params"]
+        
+        curves = []
+        for x in x_grid:
+            x_val = float(x)
+            density_gam = float(stats.gamma.pdf(x_val, gam["shape"], scale=gam["scale"]))
+            density_erl = float(stats.erlang.pdf(x_val, erl["shape_k"], scale=erl["scale"]))
+            density_logn = float(stats.lognorm.pdf(x_val, logn["sigma"], scale=logn["scale"]))
+            curves.append({
+                "x": x_val,
+                "gamma": density_gam,
+                "erlang": density_erl,
+                "lognormal": density_logn
+            })
+            
+        return {
+            "metadata": {
+                "route_name": report.get("route_name", "B12"),
+                "period": report.get("period", "peak"),
+                "cv": report.get("cv", 0.25),
+                "scheduled_mean": report.get("scheduled_mean", 5.0),
+                "simulated_mean": report.get("simulated_mean", 5.0),
+                "simulated_std": report.get("simulated_std", 1.25),
+            },
+            "fits": fits,
+            "histogram": histogram,
+            "curves": curves,
+            "available_routes": available_routes,
+            "selected_route": route or report.get("route_name", "B12")
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compile headway fits: {str(e)}")
+
 

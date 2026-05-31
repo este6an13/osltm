@@ -19,6 +19,7 @@ dependencies = [
     "scipy>=1.16.3",
     "seaborn>=0.13.2",
     "shapely>=2.1.2",
+    "simpy>=4.1.2",
     "sqlalchemy>=2.0.44",
     "statsmodels>=0.14.5",
     "uvicorn>=0.43.0",
