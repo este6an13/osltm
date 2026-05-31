@@ -444,6 +444,54 @@ export default function PipelinePage() {
                   </div>
                 )}
 
+                {/* Step 6 */}
+                {params.step6 && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 6 — Extract Routes</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div className="form-group">
+                        <label className="form-label">Sleep Delay (s) (min: 0.5)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          min="0.5" 
+                          className="form-input" 
+                          value={params.step6.sleep_delay ?? ''} 
+                          onChange={e => handleParamChange('step6', 'sleep_delay', parseFloat(e.target.value))} 
+                          onBlur={e => {
+                            const val = parseFloat(e.target.value);
+                            handleParamChange('step6', 'sleep_delay', isNaN(val) || val < 0.5 ? 0.5 : val);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 7 */}
+                {params.step7 && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 7 — Route Frequencies</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div className="form-group">
+                        <label className="form-label">Sleep Delay (s) (min: 1.0)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          min="1" 
+                          className="form-input" 
+                          value={params.step7.sleep_delay ?? ''} 
+                          onChange={e => handleParamChange('step7', 'sleep_delay', parseFloat(e.target.value))} 
+                          onBlur={e => {
+                            const val = parseFloat(e.target.value);
+                            handleParamChange('step7', 'sleep_delay', isNaN(val) || val < 1.0 ? 1.0 : val);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Right Column: Terminal & Run Actions */}
@@ -474,6 +522,8 @@ export default function PipelinePage() {
                       { num: 3, label: 'Station Sampling' },
                       { num: 4, label: 'Populate Counts' },
                       { num: 5, label: 'Station Network' },
+                      { num: 6, label: 'Extract Routes' },
+                      { num: 7, label: 'Extract Frequencies' },
                     ].map(({ num, label }) => (
                       <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#e4e4e7', fontSize: '0.85rem' }}>
                         <input type="checkbox" checked={selectedSteps.includes(num)} onChange={() => toggleStep(num)} style={{ accentColor: 'var(--accent-primary)' }} />

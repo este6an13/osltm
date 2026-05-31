@@ -53,13 +53,23 @@ def run(params: dict[str, Any]) -> None:
     """
     Execute step 6: Extract routes and stations.
     """
+    import datetime
     step_params = params.get("step6", {})
     output_dir_str = step_params.get("output_dir", "data/routes")
     output_filename = step_params.get(
         "output_filename", "transmilenio_routes_stations.csv"
     )
+    
+    # Append timestamp before extension to prevent overwriting
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if "." in output_filename:
+        parts = output_filename.rsplit(".", 1)
+        output_filename = f"{parts[0]}_{timestamp}.{parts[1]}"
+    else:
+        output_filename = f"{output_filename}_{timestamp}"
+
     tipo = step_params.get("tipo", "TransMilenio")
-    sleep_delay = step_params.get("sleep_delay", 0.05)
+    sleep_delay = max(0.5, float(step_params.get("sleep_delay", 0.5)))
 
     output_dir = Path(output_dir_str)
     output_dir.mkdir(parents=True, exist_ok=True)

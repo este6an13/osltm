@@ -121,11 +121,21 @@ def run(params: dict[str, Any]) -> None:
     """
     Execute step 7: Extract route frequencies and hours sequentially.
     """
+    import datetime
     step_params = params.get("step7", {})
     output_dir_str = step_params.get("output_dir", "data/routes")
     output_filename = step_params.get("output_filename", "transmilenio_frequencies.csv")
+    
+    # Append timestamp before extension to prevent overwriting
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if "." in output_filename:
+        parts = output_filename.rsplit(".", 1)
+        output_filename = f"{parts[0]}_{timestamp}.{parts[1]}"
+    else:
+        output_filename = f"{output_filename}_{timestamp}"
+
     tipo = step_params.get("tipo", "Troncal")
-    sleep_delay = step_params.get("sleep_delay", 1.5)
+    sleep_delay = max(1.0, float(step_params.get("sleep_delay", 1.5)))
     
     workspace_root = Path(__file__).parent.parent.parent.parent.resolve()
     if Path(output_dir_str).is_absolute():
