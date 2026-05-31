@@ -320,3 +320,31 @@ def get_headway_fitting_results(pipeline_id: str, experiment_id: str, route: Opt
         raise HTTPException(status_code=500, detail=f"Failed to compile headway fits: {str(e)}")
 
 
+@router.get("/service/headway_fitting/{pipeline_id}/{experiment_id}/traversal")
+def get_traversal_simulation_results(pipeline_id: str, experiment_id: str):
+    """
+    Load and serve the traversal_simulation.json file for the given pipeline and experiment.
+    Falls back to the root headway_fitting folder if not found.
+    """
+    file_path = None
+    if pipeline_id != "default" and experiment_id != "default":
+        try:
+            file_path = _safe_path(RESULTS_DIR, "headway_fitting", pipeline_id, experiment_id, "traversal_simulation.json")
+        except HTTPException:
+            pass
+            
+    if file_path is None or not file_path.exists():
+        fallback = RESULTS_DIR / "headway_fitting" / "traversal_simulation.json"
+        if fallback.exists():
+            file_path = fallback
+        else:
+            raise HTTPException(status_code=404, detail="Traversal simulation JSON not found")
+            
+    try:
+        with open(file_path) as f:
+            return json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse traversal simulation JSON: {str(e)}")
+
+
+

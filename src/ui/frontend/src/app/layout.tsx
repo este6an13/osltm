@@ -42,7 +42,8 @@ export default function RootLayout({
               <Link href="/od/gravity" className="nav-link">Gravity Model</Link>
 
               <div className="nav-section">Service Modeling</div>
-              <Link href="/service/headways" className="nav-link">Headway Fitting</Link>
+              <Link href="/service/headways" className="nav-link font-medium">Headway Fitting</Link>
+              <Link href="/service/headways/animator" className="nav-link font-medium">🚌 Service Animator</Link>
 
               <div className="nav-section">Real-Time</div>
               <Link href="/realtime" className="nav-link">⏱ Live Simulation</Link>

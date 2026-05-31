@@ -207,9 +207,14 @@ def run_headway_fitting(
     else:
         routes = list(route_name)
 
+    PROJECT_ROOT = Path(__file__).resolve().parents[4]
     if output_dir is None:
-        output_dir = Path("src/workflow/results/headway_fitting")
-    output_dir = Path(output_dir)
+        output_dir = PROJECT_ROOT / "src" / "workflow" / "results" / "headway_fitting"
+    else:
+        output_dir = Path(output_dir)
+        if not output_dir.is_absolute():
+            output_dir = PROJECT_ROOT / output_dir
+            
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results = {}
@@ -289,10 +294,306 @@ def run_headway_fitting(
         results[r] = {
             "samples": H,
             "fits": fits,
-            "winner": winner
+            "winner": winner,
+            "scheduled_mean": mu_H
         }
 
+    # ── 5. Run Traversal Simulation ──────────────────────────────────────
+    print("\n>>> Simulating 2D bus traversals (View 1 & View 2)...")
+    simulate_traversal_and_serialize(routes, period, cv, output_dir, results)
+
     return results
+
+
+def simulate_traversal_and_serialize(
+    routes: list[str],
+    period: str,
+    cv: float,
+    output_dir: Path,
+    report_data_dict: dict
+) -> None:
+    """
+    Simulates bus traversals for both View 1 (Fitted) and View 2 (Physical)
+    and serializes the timeline to traversal_simulation.json.
+    """
+    import math
+    # 1. Load nodes.csv
+    nodes_csv = Path("data/geometry/output/nodes.csv")
+    if not nodes_csv.exists():
+        possible_paths = [
+            Path("osltm/data/geometry/output/nodes.csv"),
+            Path(__file__).resolve().parent.parent.parent.parent / "data" / "geometry" / "output" / "nodes.csv",
+            Path("d:/dequi/repositories/osltm/data/geometry/output/nodes.csv")
+        ]
+        for p in possible_paths:
+            if p.exists():
+                nodes_csv = p
+                break
+                
+    def clean_id(val):
+        try:
+            if pd.isnull(val):
+                return ""
+            return str(int(float(val))).strip().zfill(5)
+        except Exception:
+            return str(val).strip().zfill(5)
+
+    stations_db = {}
+    if nodes_csv.exists():
+        try:
+            df_nodes = pd.read_csv(nodes_csv)
+            for _, row in df_nodes.iterrows():
+                sid = clean_id(row["id"])
+                stations_db[sid] = {
+                    "station_id": sid,
+                    "name": str(row["name"]).strip(),
+                    "x": float(row["x"]),
+                    "y": float(row["y"]),
+                    "troncal": str(row["troncal"]).strip() if pd.notnull(row["troncal"]) else "Other"
+                }
+        except Exception as e:
+            print(f"[WARNING] Failed to parse nodes.csv: {e}")
+    else:
+        print(f"[WARNING] nodes.csv not found at: {nodes_csv.resolve()}")
+
+    # 1.2 Load edges.csv
+    edges_list = []
+    edges_csv = Path("data/geometry/output/edges.csv")
+    if not edges_csv.exists():
+        possible_paths = [
+            Path("osltm/data/geometry/output/edges.csv"),
+            Path(__file__).resolve().parents[4] / "data" / "geometry" / "output" / "edges.csv",
+            Path("d:/dequi/repositories/osltm/data/geometry/output/edges.csv")
+        ]
+        for p in possible_paths:
+            if p.exists():
+                edges_csv = p
+                break
+    if edges_csv.exists():
+        try:
+            df_edges = pd.read_csv(edges_csv)
+            for _, row in df_edges.iterrows():
+                src = clean_id(row["source"])
+                tgt = clean_id(row["target"])
+                if src in stations_db and tgt in stations_db:
+                    edges_list.append({
+                        "source": src,
+                        "target": tgt,
+                        "edge_type": str(row["edge_type"]) if pd.notnull(row["edge_type"]) else "intra_trazado"
+                    })
+        except Exception as e:
+            print(f"[WARNING] Failed to parse edges.csv: {e}")
+
+    # 2. Load transmilenio_routes_stations.csv
+    routes_csv = Path("data/routes/transmilenio_routes_stations.csv")
+    if not routes_csv.exists():
+        possible_paths = [
+            Path("osltm/data/routes/transmilenio_routes_stations.csv"),
+            Path(__file__).resolve().parent.parent.parent.parent / "data" / "routes" / "transmilenio_routes_stations.csv",
+            Path("d:/dequi/repositories/osltm/data/routes/transmilenio_routes_stations.csv")
+        ]
+        for p in possible_paths:
+            if p.exists():
+                routes_csv = p
+                break
+
+    routes_stations_df = None
+    if routes_csv.exists():
+        try:
+            routes_stations_df = pd.read_csv(routes_csv)
+        except Exception as e:
+            print(f"[WARNING] Failed to parse routes_stations CSV: {e}")
+
+    routes_payload = {}
+    
+    for r in routes:
+        if routes_stations_df is None:
+            continue
+            
+        # Find matching rows
+        match_df = routes_stations_df[routes_stations_df["route_code"].astype(str).str.strip().str.upper() == r.strip().upper()]
+        if match_df.empty:
+            print(f"[WARNING] Route '{r}' sequence not found in routes CSV. Skipping traversal simulation.")
+            continue
+            
+        # Identify the route_id with the maximum number of stations (primary sequence)
+        route_ids = match_df["route_id"].unique()
+        best_route_id = None
+        best_count = 0
+        for rid in route_ids:
+            cnt = len(match_df[match_df["route_id"] == rid])
+            if cnt > best_count:
+                best_count = cnt
+                best_route_id = rid
+                
+        best_df = match_df[match_df["route_id"] == best_route_id].sort_values("station_sequence")
+        
+        # Build station sequence trace
+        route_stations_seq = []
+        route_color = "#3b82f6" # default blue
+        
+        for _, row in best_df.iterrows():
+            sid = clean_id(row["station_id"])
+            if "route_color" in row and pd.notnull(row["route_color"]):
+                route_color = str(row["route_color"]).strip()
+            if sid in stations_db:
+                route_stations_seq.append(sid)
+                
+        if len(route_stations_seq) < 2:
+            print(f"[WARNING] Route '{r}' has less than 2 matched stations in geometry. Skipping.")
+            continue
+            
+        # Fetch fits parameters
+        route_report = report_data_dict.get(r)
+        if not route_report:
+            print(f"[WARNING] No fitting fits found for route '{r}'. Skipping.")
+            continue
+            
+        fits = route_report["fits"]
+        winner = route_report["winner"]
+        
+        # ─── VIEW 1: Fitted MLE Model (Nominal Corridor) ───
+        np.random.seed(42)
+        n_buses = 30
+        
+        if winner == "gamma":
+            shape = fits["gamma"]["params"]["shape"]
+            scale = fits["gamma"]["params"]["scale"]
+            headways = stats.gamma.rvs(shape, scale=scale, size=n_buses, random_state=42)
+        elif winner == "erlang":
+            shape_k = fits["erlang"]["params"]["shape_k"]
+            scale = fits["erlang"]["params"]["scale"]
+            headways = stats.erlang.rvs(shape_k, scale=scale, size=n_buses, random_state=42)
+        else: # lognormal
+            sigma = fits["lognormal"]["params"]["sigma"]
+            scale = fits["lognormal"]["params"]["scale"]
+            headways = stats.lognorm.rvs(sigma, scale=scale, size=n_buses, random_state=42)
+            
+        # Keep headways positive and realistic
+        headways = np.clip(headways, 0.2, None)
+        dispatch_times_fit = np.cumsum(headways) * 60.0 # in seconds
+        
+        buses_fitted = []
+        base_speed = 30.0 / 3.6 # 30 km/h in m/s = 8.33
+        base_dwell = 30.0 # 30 seconds constant
+        
+        for b in range(n_buses):
+            bus_id = f"{r}_FIT_{b+1}"
+            t_curr = dispatch_times_fit[b]
+            timeline = []
+            
+            for i, sid in enumerate(route_stations_seq):
+                t_arr = t_curr
+                t_dep = t_arr + base_dwell
+                timeline.append({
+                    "station_id": sid,
+                    "arrival": round(t_arr, 1),
+                    "departure": round(t_dep, 1)
+                })
+                
+                t_curr = t_dep
+                if i < len(route_stations_seq) - 1:
+                    s_curr = stations_db[sid]
+                    s_next = stations_db[route_stations_seq[i+1]]
+                    dist = math.sqrt((s_next["x"] - s_curr["x"])**2 + (s_next["y"] - s_curr["y"])**2)
+                    travel_time = dist / base_speed
+                    t_curr += travel_time
+                    
+            buses_fitted.append({
+                "bus_id": bus_id,
+                "timeline": timeline
+            })
+            
+        # ─── VIEW 2: Physical Model (Stochastic Degradation) ───
+        scheduled_mean = route_report["scheduled_mean"]
+        dispatch_times_phys = np.arange(1, n_buses + 1) * scheduled_mean * 60.0 # regular schedule
+        
+        buses_physical = []
+        
+        for b in range(n_buses):
+            bus_id = f"{r}_PHYS_{b+1}"
+            v_b = np.random.normal(30.0 / 3.6, 1.8 / 3.6)
+            v_b = np.clip(v_b, 6.0, 11.0)
+            
+            t_curr = dispatch_times_phys[b]
+            timeline = []
+            
+            for i, sid in enumerate(route_stations_seq):
+                t_arr = t_curr
+                dwell = np.random.normal(30.0, 5.0)
+                dwell = max(15.0, dwell)
+                t_dep = t_arr + dwell
+                
+                timeline.append({
+                    "station_id": sid,
+                    "arrival": round(t_arr, 1),
+                    "departure": round(t_dep, 1)
+                })
+                
+                t_curr = t_dep
+                if i < len(route_stations_seq) - 1:
+                    s_curr = stations_db[sid]
+                    s_next = stations_db[route_stations_seq[i+1]]
+                    dist = math.sqrt((s_next["x"] - s_curr["x"])**2 + (s_next["y"] - s_curr["y"])**2)
+                    travel_time_base = dist / v_b
+                    
+                    m = travel_time_base
+                    s = cv * m * 0.5
+                    
+                    if s > 0:
+                        var_normal = math.log(1 + (s / m)**2)
+                        mu_normal = math.log(m) - var_normal / 2
+                        travel_time = math.exp(np.random.normal(mu_normal, math.sqrt(var_normal)))
+                    else:
+                        travel_time = m
+                        
+                    t_curr += travel_time
+                    
+            buses_physical.append({
+                "bus_id": bus_id,
+                "timeline": timeline
+            })
+            
+        routes_payload[r] = {
+            "route_code": r,
+            "color": route_color,
+            "stations": route_stations_seq,
+            "views": {
+                "fitted": {
+                    "description": f"Fitted Model: Stochastic dispatches using best-fitting {winner.upper()} model, deterministic stable corridor travel.",
+                    "buses": buses_fitted
+                },
+                "physical": {
+                    "description": "Physical Model: Perfectly uniform schedule dispatches, experiencing en-route driver perturbations, stochastic dwells, and log-normal traffic delay noise.",
+                    "buses": buses_physical
+                }
+            }
+        }
+        
+    payload = {
+        "metadata": {
+            "period": period,
+            "cv": cv,
+            "simulated_routes": list(routes_payload.keys())
+        },
+        "stations": stations_db,
+        "edges": edges_list,
+        "routes": routes_payload
+    }
+    
+    output_file = output_dir / "traversal_simulation.json"
+    with open(output_file, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(f"[TRAVERSAL SIMULATOR] Traversal simulation written to: {output_file}")
+    
+    PROJECT_ROOT = Path(__file__).resolve().parents[4]
+    fallback_file = PROJECT_ROOT / "src" / "workflow" / "results" / "headway_fitting" / "traversal_simulation.json"
+    fallback_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(fallback_file, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(f"[TRAVERSAL SIMULATOR] Traversal simulation fallback written to: {fallback_file}")
+
+
 
 
 if __name__ == "__main__":
