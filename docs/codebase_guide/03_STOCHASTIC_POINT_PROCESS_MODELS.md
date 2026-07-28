@@ -11,14 +11,13 @@ To overcome the failure of standard Non-Homogeneous Poisson Processes (NHPP) ide
 
 ```mermaid
 graph TD
-    SubGraph1[Point Process Model Hierarchy]
-    M1[1. Baseline Average Profile NHPP] -->|Fails Fano/QQ Test| M2[2. Log-Gaussian Cox Process LGCP]
-    M1 -->|Fails Fano/QQ Test| M3[3. Hawkes Self-Exciting Process]
-    M1 -->|Fails Fano/QQ Test| M4[4. Neyman-Scott Cluster Process]
+    M1["1. Baseline Average Profile NHPP"] -->|"Fails Fano/QQ Test"| M2["2. Log-Gaussian Cox Process LGCP"]
+    M1 -->|"Fails Fano/QQ Test"| M3["3. Hawkes Self-Exciting Process"]
+    M1 -->|"Fails Fano/QQ Test"| M4["4. Neyman-Scott Cluster Process"]
     
-    M2 -->|Gaussian Process Covariance| E1[Captures Latent Environmental Fluctuations]
-    M3 -->|Branching Ratio eta = alpha/beta| E2[Captures Passenger Batch Excitation]
-    M4 -->|Parent-Offspring Clusters| E3[Captures Platform Crowd Arrivals]
+    M2 -->|"Gaussian Process Covariance"| E1["Captures Latent Environmental Fluctuations"]
+    M3 -->|"Branching Ratio eta = alpha/beta"| E2["Captures Passenger Batch Excitation"]
+    M4 -->|"Parent-Offspring Clusters"| E3["Captures Platform Crowd Arrivals"]
 ```
 
 ---

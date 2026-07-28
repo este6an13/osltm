@@ -13,10 +13,10 @@ These scripts were built to systematically test **four fundamental statistical h
 
 ```mermaid
 graph TD
-    H1[Hypothesis 1: Day-Type Separation] -->|Verified by distance ratios R < 1 & FPCA| R1[Conclusion: Fit separate intensity functions for WD, SA, SU, HO]
-    H2[Hypothesis 2: Station Heterogeneity] -->|Verified by cross-station FPCA & Ward Clustering| R2[Conclusion: Station-specific rate functions lambda_s(t) are mandatory]
-    H3[Hypothesis 3: Seasonality Invariance] -->|Verified across months/years| R3[Conclusion: Omit month/year seasonality; treat day-type rate as stationary]
-    H4[Hypothesis 4: Poisson Overdispersion] -->|Verified by Fano factor >> 1 & Time-Rescaling QQ| R4[Conclusion: Reject NHPP; require Cox, Hawkes, or Neyman-Scott models]
+    H1["Hypothesis 1: Day-Type Separation"] -->|"Verified by distance ratios R < 1 & FPCA"| R1["Conclusion: Fit separate intensity functions for WD, SA, SU, HO"]
+    H2["Hypothesis 2: Station Heterogeneity"] -->|"Verified by cross-station FPCA & Ward Clustering"| R2["Conclusion: Station-specific rate functions lambda_s(t) are mandatory"]
+    H3["Hypothesis 3: Seasonality Invariance"] -->|"Verified across months/years"| R3["Conclusion: Omit month/year seasonality; treat day-type rate as stationary"]
+    H4["Hypothesis 4: Poisson Overdispersion"] -->|"Verified by Fano factor > 1 & Time-Rescaling QQ"| R4["Conclusion: Reject NHPP; require Cox, Hawkes, or Neyman-Scott models"]
 ```
 
 ---

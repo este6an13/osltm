@@ -11,24 +11,24 @@ The data pipeline acquires raw, high-volume passenger transaction CSV files publ
 
 ```mermaid
 flowchart TD
-    A[TransMilenio Open Data Portal] -->|Step 2: HTTP Download| B[data/check_ins/daily/*.csv]
-    A -->|Step 2: HTTP Download| C[data/check_outs/daily/*.csv]
+    A["TransMilenio Open Data Portal"] -->|"Step 2: HTTP Download"| B["data/check_ins/daily/*.csv"]
+    A -->|"Step 2: HTTP Download"| C["data/check_outs/daily/*.csv"]
     
-    subgraph Stratified Sampling
-        D[Date Range: 2024-01-01 to 2024-12-31] -->|Step 1: Stratified Sampler| E[data/sampled_dates.csv]
-        F[Raw Station CSV Scan] -->|Step 3: Station Sampler| G[data/sampled_stations.csv]
+    subgraph "Stratified Sampling"
+        D["Date Range: 2024-01-01 to 2024-12-31"] -->|"Step 1: Stratified Sampler"| E["data/sampled_dates.csv"]
+        F["Raw Station CSV Scan"] -->|"Step 3: Station Sampler"| G["data/sampled_stations.csv"]
     end
     
-    B & C & E & G -->|Step 4: Populator & Aggregator| H[(osltm.db - SQLite)]
+    B & C & E & G -->|"Step 4: Populator & Aggregator"| H[("osltm.db - SQLite")]
     
-    subgraph SQLite Database
-        H --> I[counts_15min_checkins]
-        H --> J[counts_15min_checkouts]
-        H --> K[stations]
-        H --> L[processed_files]
+    subgraph "SQLite Database"
+        H --> I["counts_15min_checkins"]
+        H --> J["counts_15min_checkouts"]
+        H --> K["stations"]
+        H --> L["processed_files"]
     end
     
-    I & J -->|data_loader.py| M[Pandas DataFrame for Statistical Analysis]
+    I & J -->|"data_loader.py"| M["Pandas DataFrame for Statistical Analysis"]
 ```
 
 ---

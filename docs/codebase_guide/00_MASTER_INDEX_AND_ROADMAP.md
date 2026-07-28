@@ -29,15 +29,13 @@ To provide an exhaustive yet organized breakdown, this guide is split across fou
 The Git commit history reveals a logical 7-phase evolution of the project:
 
 ```mermaid
-timeline
-    title OSLTM Project Evolution Timeline
-    Phase 1 : Data Ingestion & OD : Initial DB schema (v0/v1), raw CSV downloader, next check-in OD algorithm
-    Phase 2 : Stratified Sampling & NHPP : Stratified dates (WD/SA/SU/HO), global random seeds, early NHPP tests
-    Phase 3 : Data Model V2 & Fano Factor : 15-min count aggregation (v2 DB), Fano factor overdispersion, KDE intensity
-    Phase 4 : Workflow Architecture : 4-step CLI orchestrator (data_loader, step1-4, params.json)
-    Phase 5 : Functional Data Analysis (FDA) : FPCA, within/between distance ratios R, mean envelopes, heatmap & station clustering
-    Phase 6 : Stochastic Point Process Models : LGCP (2-stage + Laplace), Hawkes (continuous O(N) likelihood), time-rescaling QQ-plots
-    Phase 7 : Web UI & Network Extensions : FastAPI + Next.js dashboard, live simulation, Neyman-Scott, OD gravity, bus traversal animation
+flowchart LR
+    P1["Phase 1: Data Ingestion & OD"] --> P2["Phase 2: Stratified Sampling & NHPP"]
+    P2 --> P3["Phase 3: Data Model V2 & Fano Factor"]
+    P3 --> P4["Phase 4: Workflow Architecture"]
+    P4 --> P5["Phase 5: Functional Data Analysis (FDA)"]
+    P5 --> P6["Phase 6: Stochastic Point Process Models"]
+    P6 --> P7["Phase 7: Web UI & Network Extensions"]
 ```
 
 ### Key Milestones & Commit Log Reference
